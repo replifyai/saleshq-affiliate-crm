@@ -1,26 +1,96 @@
 @import "tailwindcss";
 
 :root {
+  /* Base palette with strong contrast */
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #0f172a; /* slate-900 */
+  --muted: #475569;      /* slate-600 */
+  --muted-foreground: #334155; /* slate-700 */
+  --border: #e2e8f0;     /* slate-200 */
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --primary: #2563eb;    /* blue-600 */
+  --primary-foreground: #ffffff;
+  --destructive: #dc2626; /* red-600 */
+  --destructive-foreground: #ffffff;
+  --ring: #2563eb;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-ring: var(--ring);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0b1220;          /* deep slate */
+    --foreground: #e5e7eb;          /* gray-200 */
+    --muted: #94a3b8;               /* slate-400 */
+    --muted-foreground: #cbd5e1;    /* slate-300 */
+    --border: #1f2937;              /* gray-800 */
+    --card: #0f172a;                /* slate-900 */
+    --card-foreground: #e5e7eb;
+    --primary: #3b82f6;             /* blue-500 for better dark contrast */
+    --primary-foreground: #0b1220;
+    --destructive: #ef4444;         /* red-500 */
+    --destructive-foreground: #0b1220;
+    --ring: #60a5fa;                /* blue-400 */
   }
 }
+
+/* Base element resets and modern typography */
+html { color-scheme: light dark; }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Headings with comfortable rhythm */
+h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.01em; }
+h3 { font-size: 1.25rem; font-weight: 600; }
+
+/* Links and focus styles with clear visibility */
+a { color: var(--primary); text-underline-offset: 3px; }
+a:hover { text-decoration: underline; }
+
+*:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Borders and cards */
+.card {
+  background: var(--card);
+  color: var(--card-foreground);
+  border: 1px solid var(--border);
+}
+
+/* Selection colors for readability */
+::selection {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+/* Reduced motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
 }

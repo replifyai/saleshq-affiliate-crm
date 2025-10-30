@@ -53,8 +53,10 @@ export async function POST(request: NextRequest) {
       path: '/',
     };
 
-    response.cookies.set('idToken', adminProfile.idToken, cookieOptions);
-    response.cookies.set('refreshToken', adminProfile.refreshToken, cookieOptions);
+
+    // Set new cookie names
+    response.cookies.set('auth_token', adminProfile.idToken, cookieOptions);
+    response.cookies.set('auth_refresh_token', adminProfile.refreshToken, cookieOptions);
 
     return response;
   } catch (error) {

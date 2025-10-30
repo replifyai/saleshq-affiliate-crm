@@ -16,8 +16,8 @@ export function middleware(request: NextRequest) {
   // Check if user is trying to access protected pages
   const isProtectedPage = pathname.startsWith('/dashboard') || pathname === '/';
 
-  // Get the idToken from cookies
-  const idToken = request.cookies.get('idToken')?.value;
+  // Get the auth token from cookies
+  const idToken = request.cookies.get('auth_token')?.value;
 
   // If accessing a protected page without authentication
   if (isProtectedPage && !idToken) {

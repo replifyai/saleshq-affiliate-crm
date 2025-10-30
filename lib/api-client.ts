@@ -86,7 +86,7 @@ class ApiClient {
       const cookies = document.cookie.split(';');
       for (const cookie of cookies) {
         const [name, value] = cookie.trim().split('=');
-        if (name === 'idToken') {
+        if (name === 'auth_token') {
           return value;
         }
       }
