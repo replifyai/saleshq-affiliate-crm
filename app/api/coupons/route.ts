@@ -4,7 +4,6 @@ import { fetchBackend, handleApiError } from '@/lib/server-utils';
 
 // Helper function to map external API coupon to internal format
 function mapExternalCoupon(externalCoupon: ExternalCoupon): Coupon {
-  console.log("externalCoupon",externalCoupon);
   // Determine coupon type and value
   let type: CouponType = 'percentage';
   let value = 0;
@@ -51,14 +50,10 @@ export async function GET(request: NextRequest) {
     const creatorId = searchParams.get('creatorId');
     const active = searchParams.get('active');
     const search = searchParams.get('search');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
 
     // Call external API with authentication
-    // Pass pagination and filter parameters to backend
+    // Pass filter parameters to backend
     const requestBody = {
-      ...(page && { page }),
-      ...(limit && { limit: limit }),
       ...(creatorId && creatorId !== 'all' && { creatorId }),
       ...(active && active !== 'all' && { active: active === 'true' }),
       ...(search && { search }),
@@ -68,7 +63,6 @@ export async function GET(request: NextRequest) {
       method: 'POST',
       body: JSON.stringify(requestBody),
     });
-console.log(response);
     if (!response.ok) {
       return handleApiError(new Error('Backend request failed'), response);
     }
@@ -97,38 +91,9 @@ console.log(response);
       );
     }
 
-    // Extract pagination metadata from backend response
-    // Support multiple common pagination response formats
-    const backendPagination = data.pagination || data.meta || {};
-    const backendTotal = data.total || backendPagination.total || backendPagination.totalItems || backendPagination.totalRecords;
-    const backendPage = backendPagination.currentPage || backendPagination.page || page;
-    const backendTotalPages = backendPagination.totalPages || (backendTotal ? Math.ceil(backendTotal / limit) : 1);
-    const backendLimit = backendPagination.itemsPerPage || backendPagination.limit || backendPagination.pageSize || limit;
-
-    // Use backend pagination metadata if available, otherwise calculate from filtered data
-    const paginationMeta = {
-      currentPage: backendPage,
-      totalPages: backendTotalPages || Math.ceil(coupons.length / limit),
-      totalItems: backendTotal || coupons.length,
-      itemsPerPage: backendLimit,
-    };
-
-    // If backend provided total count, it likely already paginated
-    // Otherwise, apply client-side pagination as fallback
-    let paginatedCoupons = coupons;
-    if (!backendTotal && coupons.length > limit) {
-      // Backend didn't paginate, apply client-side pagination
-      const start = (page - 1) * limit;
-      const end = start + limit;
-      paginatedCoupons = coupons.slice(start, end);
-    }
-
     return NextResponse.json({
       success: true,
-      data: {
-        data: paginatedCoupons,
-        meta: paginationMeta,
-      },
+      data: coupons,
     });
   } catch (error) {
     return handleApiError(error);

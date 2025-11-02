@@ -86,22 +86,22 @@ export default function OrdersPage() {
     <DashboardLayout>
       <div className="p-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Orders</h1>
-          <p className="text-gray-600 mt-2">View and manage customer orders</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-slate-100">Orders</h1>
+          <p className="text-gray-600 dark:text-slate-400 mt-2">View and manage customer orders</p>
         </div>
 
         {/* Filters */}
         <Card className="mb-6">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
-              <Filter className="h-5 w-5 text-gray-600" />
+              <Filter className="h-5 w-5 text-gray-600 dark:text-slate-400" />
               <CardTitle className="text-lg">Filters & Sorting</CardTitle>
             </div>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Order Number</label>
+                <label className="text-sm font-medium text-gray-700 dark:text-slate-300">Order Number</label>
                 <Input
                   placeholder="Search by order number..."
                   value={filters.orderNumber || ''}
@@ -162,49 +162,49 @@ export default function OrdersPage() {
           <CardContent>
             {loading ? (
               <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-500"></div>
               </div>
             ) : orders.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
+              <div className="text-center py-12 text-gray-500 dark:text-slate-400">
                 No orders found
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Order Number</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Customer Email</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Total Amount</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Payment Status</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Commission</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Attributed Creator</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Created</th>
-                      <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Actions</th>
+                    <tr className="border-b border-gray-200 dark:border-slate-800">
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Order Number</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Customer Email</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Total Amount</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Payment Status</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Commission</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Attributed Creator</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Created</th>
+                      <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {orders.map((order) => (
-                      <tr key={order.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-4 font-mono font-semibold">{order.orderNumber}</td>
-                        <td className="py-3 px-4">{order.customerEmail}</td>
-                        <td className="py-3 px-4 font-semibold">
+                      <tr key={order.id} className="border-b border-gray-100 hover:bg-gray-50 dark:border-slate-800 dark:hover:bg-slate-800/50 group">
+                        <td className="py-3 px-4 font-mono font-semibold dark:text-slate-200 group-hover:text-gray-900 dark:group-hover:text-white">{order.orderNumber}</td>
+                        <td className="py-3 px-4 dark:text-slate-200 group-hover:text-gray-900 dark:group-hover:text-white">{order.customerEmail}</td>
+                        <td className="py-3 px-4 font-semibold dark:text-slate-200 group-hover:text-gray-900 dark:group-hover:text-white">
                           {formatCurrency(parseFloat(order.totalAmount || '0'), order.currencyCode)}
                         </td>
                         <td className="py-3 px-4">{getPaymentStatusBadge(order.paymentStatus)}</td>
-                        <td className="py-3 px-4">
+                        <td className="py-3 px-4 dark:text-slate-200 group-hover:text-gray-900 dark:group-hover:text-white">
                           {order.commissionAmount
                             ? formatCurrency(parseFloat(order.commissionAmount || '0'), order.commissionCurrency || order.currencyCode)
                             : 'N/A'}
                         </td>
                         <td className="py-3 px-4">
                           {order.attributedCreatorId ? (
-                            <span className="text-sm text-gray-600">{order.attributedCreatorId}</span>
+                            <span className="text-sm text-gray-600 dark:text-slate-300 group-hover:text-gray-900 dark:group-hover:text-white">{order.attributedCreatorId}</span>
                           ) : (
-                            <span className="text-sm text-gray-400">—</span>
+                            <span className="text-sm text-gray-400 dark:text-slate-500 group-hover:text-gray-900 dark:group-hover:text-white">—</span>
                           )}
                         </td>
-                        <td className="py-3 px-4 text-gray-600 text-sm">{formatDateTime(new Date(order.createdAt))}</td>
+                        <td className="py-3 px-4 text-gray-600 dark:text-slate-300 text-sm group-hover:text-gray-900 dark:group-hover:text-white">{formatDateTime(new Date(order.createdAt))}</td>
                         <td className="py-3 px-4">
                           <div className="flex justify-end gap-2">
                             <Button
@@ -226,8 +226,8 @@ export default function OrdersPage() {
 
             {/* Pagination */}
             {pagination && pagination.totalPages > 1 && (
-              <div className="flex justify-between items-center mt-6 pt-6 border-t border-gray-200">
-                <div className="text-sm text-gray-600">
+              <div className="flex justify-between items-center mt-6 pt-6 border-t border-gray-200 dark:border-slate-800">
+                <div className="text-sm text-gray-600 dark:text-slate-400">
                   Showing {pagination ? ((pagination.currentPage - 1) * pagination.itemsPerPage) + 1 : 0} to{' '}
                   {pagination ? Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems) : 0} of{' '}
                   {pagination?.totalItems || 0} orders
@@ -269,8 +269,8 @@ export default function OrdersPage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Order Number</label>
-                  <p className="text-gray-900 font-mono">{selectedOrder.orderNumber}</p>
+                  <label className="text-sm font-medium text-gray-700 dark:text-slate-300">Order Number</label>
+                  <p className="text-gray-900 dark:text-slate-200 font-mono">{selectedOrder.orderNumber}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-700">Order ID</label>
@@ -278,7 +278,7 @@ export default function OrdersPage() {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-700">Customer Email</label>
-                  <p className="text-gray-900">{selectedOrder.customerEmail}</p>
+                  <p className="text-gray-900 dark:text-slate-200">{selectedOrder.customerEmail}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-700">Customer ID</label>
@@ -299,19 +299,19 @@ export default function OrdersPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium text-gray-700">Subtotal</label>
-                    <p className="text-gray-900 font-semibold">
+                    <p className="text-gray-900 dark:text-slate-200 font-semibold">
                       {formatCurrency(parseFloat(selectedOrder.subtotalAmount || '0'), selectedOrder.currencyCode)}
                     </p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-700">Shipping</label>
-                    <p className="text-gray-900 font-semibold">
+                    <p className="text-gray-900 dark:text-slate-200 font-semibold">
                       {formatCurrency(parseFloat(selectedOrder.shippingAmount || '0'), selectedOrder.currencyCode)}
                     </p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-700">Tax</label>
-                    <p className="text-gray-900 font-semibold">
+                    <p className="text-gray-900 dark:text-slate-200 font-semibold">
                       {formatCurrency(parseFloat(selectedOrder.taxAmount || '0'), selectedOrder.currencyCode)}
                     </p>
                   </div>
@@ -353,7 +353,7 @@ export default function OrdersPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-medium text-gray-700">Commission Amount</label>
-                      <p className="text-gray-900 font-semibold">
+                      <p className="text-gray-900 dark:text-slate-200 font-semibold">
                         {formatCurrency(parseFloat(selectedOrder.commissionAmount || '0'), selectedOrder.commissionCurrency || selectedOrder.currencyCode)}
                       </p>
                     </div>

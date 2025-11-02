@@ -16,12 +16,9 @@ export default function CouponsPage() {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [creators, setCreators] = useState<Creator[]>([]);
   const [loading, setLoading] = useState(true);
-  const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, itemsPerPage: 10 });
   const [filters, setFilters] = useState<CouponFilters>({
     active: undefined,
     search: '',
-    page: 1,
-    limit: 10,
     sortBy: 'createdAt',
     sortOrder: 'desc',
   });
@@ -47,12 +44,15 @@ export default function CouponsPage() {
   const fetchCoupons = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get<{ success: boolean; data: PaginatedResponse<Coupon> }>('/coupons', {
-        params: filters,
+      const response = await apiClient.get<{ success: boolean; data: Coupon[] }>('/coupons', {
+        params: {
+          ...(filters.creatorId && filters.creatorId !== 'all' && { creatorId: filters.creatorId }),
+          ...(filters.active !== undefined && { active: filters.active.toString() }),
+          ...(filters.search && { search: filters.search }),
+        },
       });
       if (response.success && response.data) {
-        setCoupons(response.data.data);
-        setPagination(response.data.meta);
+        setCoupons(response.data);
       }
     } catch (error) {
       console.error('Failed to fetch coupons:', error);
@@ -173,8 +173,8 @@ export default function CouponsPage() {
       <div className="p-8">
         <div className="mb-8 flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Coupons</h1>
-            <p className="text-gray-600 mt-2">Manage coupons and assign to creators</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-slate-100">Coupons</h1>
+            <p className="text-gray-600 dark:text-slate-400 mt-2">Manage coupons and assign to creators</p>
           </div>
           <Button onClick={() => setShowCreateModal(true)}>
             <Plus className="h-4 w-4 mr-2" />
@@ -186,25 +186,25 @@ export default function CouponsPage() {
         <Card className="mb-6">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
-              <Filter className="h-5 w-5 text-gray-600" />
+              <Filter className="h-5 w-5 text-gray-600 dark:text-slate-400" />
               <CardTitle className="text-lg">Filters</CardTitle>
             </div>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Search</label>
+                <label className="text-sm font-medium text-gray-700 dark:text-slate-300">Search</label>
                 <Input
                   placeholder="Search by code..."
                   value={filters.search}
-                  onChange={(e) => setFilters({ ...filters, search: e.target.value, page: 1 })}
+                  onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
                 <Select
                 label="Creator"
                 value={filters.creatorId || 'all'}
-                onChange={(e) => setFilters({ ...filters, creatorId: e.target.value === 'all' ? undefined : e.target.value, page: 1 })}
+                onChange={(e) => setFilters({ ...filters, creatorId: e.target.value === 'all' ? undefined : e.target.value })}
                 options={[
                   { value: 'all', label: 'All Creators' },
                   ...creators.map((c) => ({ value: c.id, label: c.name })),
@@ -215,7 +215,7 @@ export default function CouponsPage() {
                 <Select
                   label="Status"
                 value={filters.active === undefined ? 'all' : filters.active.toString()}
-                onChange={(e) => setFilters({ ...filters, active: e.target.value === 'all' ? undefined : e.target.value === 'true', page: 1 })}
+                onChange={(e) => setFilters({ ...filters, active: e.target.value === 'all' ? undefined : e.target.value === 'true' })}
                 options={[
                   { value: 'all', label: 'All Status' },
                   { value: 'true', label: 'Active' },
@@ -236,38 +236,38 @@ export default function CouponsPage() {
         {/* Coupons Table */}
         <Card>
           <CardHeader>
-            <CardTitle>All Coupons ({pagination?.totalItems || 0})</CardTitle>
+            <CardTitle>All Coupons ({coupons.length})</CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
               <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-500"></div>
               </div>
             ) : coupons.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
+              <div className="text-center py-12 text-gray-500 dark:text-slate-400">
                 No coupons found
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Code</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Creator</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Discount</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Discount Type</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Usage</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Created</th>
-                      <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Actions</th>
+                    <tr className="border-b border-gray-200 dark:border-slate-800">
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Code</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Creator</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Discount</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Discount Type</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Usage</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Status</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Created</th>
+                      <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {coupons.map((coupon) => (
-                      <tr key={coupon.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-4 font-mono font-semibold">{coupon.code}</td>
-                        <td className="py-3 px-4">{coupon.creatorName}</td>
-                        <td className="py-3 px-4">
+                      <tr key={coupon.id} className="border-b border-gray-100 hover:bg-gray-50 dark:border-slate-800 dark:hover:bg-slate-800/50 group">
+                        <td className="py-3 px-4 font-mono font-semibold dark:text-slate-200 group-hover:text-gray-900 dark:group-hover:text-white">{coupon.code}</td>
+                        <td className="py-3 px-4 dark:text-slate-200 group-hover:text-gray-900 dark:group-hover:text-white">{coupon.creatorName}</td>
+                        <td className="py-3 px-4 dark:text-slate-200 group-hover:text-gray-900 dark:group-hover:text-white">
                           {coupon.type === 'percentage'
                             ? `${coupon.value}%`
                             : coupon.type === 'fixed_amount'
@@ -277,7 +277,7 @@ export default function CouponsPage() {
                         <td className="py-3 px-4">
                           <Badge variant="default">{getTypeLabel(coupon.type)}</Badge>
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-3 px-4 dark:text-slate-200 group-hover:text-gray-900 dark:group-hover:text-white">
                           {coupon.usageLimit
                             ? `${coupon.usageCount}/${coupon.usageLimit}`
                             : coupon.usageCount}
@@ -304,7 +304,7 @@ export default function CouponsPage() {
                             </Button>
                           </div>
                         </td>
-                        <td className="py-3 px-4 text-gray-600">{formatDate(coupon.createdAt)}</td>
+                        <td className="py-3 px-4 text-gray-600 dark:text-slate-300 group-hover:text-gray-900 dark:group-hover:text-white">{formatDate(coupon.createdAt)}</td>
                         <td className="py-3 px-4">
                           <div className="flex justify-end gap-2">
                             <Button
@@ -332,34 +332,6 @@ export default function CouponsPage() {
               </div>
             )}
 
-            {/* Pagination */}
-            {pagination && pagination.totalPages > 1 && (
-              <div className="flex justify-between items-center mt-6 pt-6 border-t border-gray-200">
-                <div className="text-sm text-gray-600">
-                  Showing {pagination ? ((pagination.currentPage - 1) * pagination.itemsPerPage) + 1 : 0} to{' '}
-                  {pagination ? Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems) : 0} of{' '}
-                  {pagination?.totalItems || 0} coupons
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setFilters({ ...filters, page: (pagination?.currentPage || 1) - 1 })}
-                    disabled={!pagination || pagination.currentPage === 1}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setFilters({ ...filters, page: (pagination?.currentPage || 1) + 1 })}
-                    disabled={!pagination || pagination.currentPage === pagination.totalPages}
-                  >
-                    Next
-                  </Button>
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>

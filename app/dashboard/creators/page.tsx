@@ -152,7 +152,7 @@ export default function CreatorsPage() {
   };
 
   const getSortIcon = (field: typeof sortBy) => {
-    if (sortBy !== field) return <ArrowUpDown className="h-4 w-4 text-gray-400 inline ml-1" />;
+    if (sortBy !== field) return <ArrowUpDown className="h-4 w-4 text-gray-400 dark:text-slate-500 inline ml-1" />;
     return (
       <ArrowUpDown 
         className={`h-4 w-4 inline ml-1 ${sortDirection === 'desc' ? 'rotate-180' : ''}`}
@@ -164,15 +164,15 @@ export default function CreatorsPage() {
     <DashboardLayout>
       <div className="p-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Creators</h1>
-          <p className="text-gray-600 mt-2">Manage creator profiles and approvals</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-slate-100">Creators</h1>
+          <p className="text-gray-600 dark:text-slate-400 mt-2">Manage creator profiles and approvals</p>
         </div>
 
         {/* Filters */}
         <Card className="mb-6">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
-              <Filter className="h-5 w-5 text-gray-600" />
+              <Filter className="h-5 w-5 text-gray-600 dark:text-slate-400" />
               <CardTitle className="text-lg">Filters & Sorting</CardTitle>
             </div>
           </CardHeader>
@@ -245,52 +245,52 @@ export default function CreatorsPage() {
           <CardContent>
             {loading ? (
               <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-500"></div>
               </div>
             ) : creators.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
+              <div className="text-center py-12 text-gray-500 dark:text-slate-400">
                 No creators found
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200">
+                    <tr className="border-b border-gray-200 dark:border-slate-800">
                       <th 
-                        className="text-left py-3 px-4 text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-50"
+                        className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800"
                         onClick={() => handleSortChange('name')}
                       >
                         Name {getSortIcon('name')}
                       </th>
                       <th 
-                        className="text-left py-3 px-4 text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-50"
+                        className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800"
                         onClick={() => handleSortChange('email')}
                       >
                         Email {getSortIcon('email')}
                       </th>
                       <th 
-                        className="text-left py-3 px-4 text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-50"
+                        className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800"
                         onClick={() => handleSortChange('phoneNumber')}
                       >
                         Phone {getSortIcon('phoneNumber')}
                       </th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Phone Verified</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Phone Verified</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Status</th>
                       <th 
-                        className="text-left py-3 px-4 text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-50"
+                        className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800"
                         onClick={() => handleSortChange('createdAt')}
                       >
                         Created {getSortIcon('createdAt')}
                       </th>
-                      <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Actions</th>
+                      <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {creators.map((creator) => (
-                      <tr key={creator.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-4 font-medium">{creator.name}</td>
-                        <td className="py-3 px-4 text-gray-600">{creator.email}</td>
-                        <td className="py-3 px-4 text-gray-600">{creator.phoneNumber}</td>
+                      <tr key={creator.id} className="border-b border-gray-100 hover:bg-gray-50 dark:border-slate-800 dark:hover:bg-slate-800/50 group">
+                        <td className="py-3 px-4 font-medium dark:text-slate-200 group-hover:text-black dark:group-hover:text-black">{creator.name}</td>
+                        <td className="py-3 px-4 font-medium dark:text-slate-200 group-hover:text-black dark:group-hover:text-black">{creator.email}</td>
+                        <td className="py-3 px-4 font-medium dark:text-slate-200 group-hover:text-black dark:group-hover:text-black">{creator.phoneNumber}</td>
                         <td className="py-3 px-4">
                           {creator.phoneNumberVerified ? (
                             <Badge variant="success">
@@ -305,7 +305,7 @@ export default function CreatorsPage() {
                           )}
                         </td>
                         <td className="py-3 px-4">{getStatusBadge(creator.approved)}</td>
-                        <td className="py-3 px-4 text-gray-600">{formatDate(creator.createdAt)}</td>
+                        <td className="py-3 px-4 font-medium dark:text-slate-200 group-hover:text-black dark:group-hover:text-black">{formatDate(creator.createdAt)}</td>
                         <td className="py-3 px-4">
                           <div className="flex justify-end gap-2">
                             <Button
