@@ -129,14 +129,42 @@ export default function CouponsPage() {
     setShowModal(true);
   };
 
+  const handleToggleStatus = async (coupon: Coupon) => {
+    try {
+      const newStatus = coupon.active ? 'INACTIVE' : 'ACTIVE';
+      const response = await apiClient.put<{ success: boolean; data: { id: string; active: boolean } }>(
+        `/coupons/${coupon.id}/status`,
+        { status: newStatus }
+      );
+
+      if (response.success) {
+        const updatedCoupon = { ...coupon, active: response.data.active };
+        // Update the coupon in the local state
+        setCoupons((prevCoupons) =>
+          prevCoupons.map((c) =>
+            c.id === coupon.id ? updatedCoupon : c
+          )
+        );
+        // Update selected coupon if it's the one being modified
+        if (selectedCoupon && selectedCoupon.id === coupon.id) {
+          setSelectedCoupon(updatedCoupon);
+        }
+        alert(`Coupon status changed to ${newStatus}`);
+      }
+    } catch (error) {
+      console.error('Failed to change coupon status:', error);
+      alert('Failed to change coupon status');
+    }
+  };
+
   const getTypeLabel = (type: CouponType) => {
     switch (type) {
       case 'percentage':
-        return '% OFF';
+        return 'Percentage';
       case 'fixed_amount':
-        return '$ OFF';
+        return 'Fixed Amount';
       case 'free_shipping':
-        return 'FREE SHIPPING';
+        return 'Free Shipping';
     }
   };
 
@@ -227,6 +255,7 @@ export default function CouponsPage() {
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Code</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Creator</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Discount</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Discount Type</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Usage</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Created</th>
@@ -242,11 +271,11 @@ export default function CouponsPage() {
                           {coupon.type === 'percentage'
                             ? `${coupon.value}%`
                             : coupon.type === 'fixed_amount'
-                            ? formatCurrency(coupon.value)
+                            ? formatCurrency(coupon.value, coupon.currencyCode)
                             : 'FREE'}
-                          <span className="text-xs text-gray-500 ml-1">
-                            {coupon.type !== 'free_shipping' && `(${getTypeLabel(coupon.type)})`}
-                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <Badge variant="default">{getTypeLabel(coupon.type)}</Badge>
                         </td>
                         <td className="py-3 px-4">
                           {coupon.usageLimit
@@ -254,11 +283,26 @@ export default function CouponsPage() {
                             : coupon.usageCount}
                         </td>
                         <td className="py-3 px-4">
-                          {coupon.active ? (
-                            <Badge variant="success">Active</Badge>
-                          ) : (
-                            <Badge variant="default">Inactive</Badge>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {coupon.active ? (
+                              <Badge variant="success">Active</Badge>
+                            ) : (
+                              <Badge variant="default">Inactive</Badge>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleToggleStatus(coupon)}
+                              title={coupon.active ? 'Deactivate Coupon' : 'Activate Coupon'}
+                              className="ml-2"
+                            >
+                              {coupon.active ? (
+                                <X className="h-4 w-4 text-red-600" />
+                              ) : (
+                                <Check className="h-4 w-4 text-green-600" />
+                              )}
+                            </Button>
+                          </div>
                         </td>
                         <td className="py-3 px-4 text-gray-600">{formatDate(coupon.createdAt)}</td>
                         <td className="py-3 px-4">
@@ -417,7 +461,7 @@ export default function CouponsPage() {
                   {selectedCoupon.type === 'percentage'
                     ? `${selectedCoupon.value}% ${getTypeLabel(selectedCoupon.type)}`
                     : selectedCoupon.type === 'fixed_amount'
-                    ? `${formatCurrency(selectedCoupon.value)} ${getTypeLabel(selectedCoupon.type)}`
+                    ? `${formatCurrency(selectedCoupon.value, selectedCoupon.currencyCode)} ${getTypeLabel(selectedCoupon.type)}`
                     : getTypeLabel(selectedCoupon.type)}
                 </p>
               </div>
@@ -431,12 +475,19 @@ export default function CouponsPage() {
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-700">Status</label>
-                <div className="mt-1">
+                <div className="mt-1 flex items-center gap-2">
                   {selectedCoupon.active ? (
                     <Badge variant="success">Active</Badge>
                   ) : (
                     <Badge variant="default">Inactive</Badge>
                   )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleToggleStatus(selectedCoupon)}
+                  >
+                    {selectedCoupon.active ? 'Deactivate' : 'Activate'}
+                  </Button>
                 </div>
               </div>
               {selectedCoupon.title && (

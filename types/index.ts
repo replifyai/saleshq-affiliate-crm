@@ -45,6 +45,7 @@ export interface Coupon {
   creatorName: string;
   type: CouponType;
   value: number;
+  currencyCode?: string; // Currency code for fixed_amount coupons (e.g., 'INR', 'USD')
   title?: string;
   description?: string;
   usageCount: number;
@@ -60,9 +61,11 @@ export interface Coupon {
 
 // External API Coupon Response Type
 export interface ExternalCouponValue {
-  type: 'percentage' | 'fixed_amount';
+  type: 'percentage' | 'fixed_amount' | 'amount';
   percentage?: number;
-  amount?: number;
+  amount?: number | string;
+  currencyCode?: string;
+  appliesOnEachItem?: boolean;
 }
 
 export interface ExternalCoupon {
@@ -83,6 +86,7 @@ export interface ExternalCoupon {
   description: string;
   createdAt: number;
   updatedAt: number;
+  usageCount: number;
 }
 
 export interface ExternalCouponsResponse {
@@ -176,5 +180,82 @@ export interface CouponFilters {
 export interface DashboardFilters {
   startDate: string;
   endDate: string;
+}
+
+// Order types
+export type PaymentStatus = 'paid' | 'pending' | 'refunded' | 'partially_refunded';
+export type AttributionType = 'coupon' | 'referral' | 'pixel';
+export type CommissionBasis = 'subtotal_after_discounts' | 'subtotal' | 'total';
+export type CommissionRateType = 'percentage' | 'fixed';
+export type CommissionSource = 'coupon' | 'referral' | 'pixel';
+
+export interface OrderLineItem {
+  id?: string;
+  productId?: string;
+  title?: string;
+  quantity?: number;
+  price?: string;
+  [key: string]: any;
+}
+
+export interface Order {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  pixelEventId?: string;
+  customerId: string;
+  customerEmail: string;
+  currencyCode: string;
+  subtotalAmount: string;
+  shippingAmount: string;
+  taxAmount: string;
+  totalAmount: string;
+  discountsTotal: string;
+  lineItems: OrderLineItem[];
+  referralCode?: string;
+  appliedCoupons: string[];
+  attributedCreatorId?: string;
+  attributionType?: AttributionType;
+  attributedCouponCode?: string;
+  commissionBasis?: CommissionBasis;
+  commissionRateType?: CommissionRateType;
+  commissionRateValue?: string;
+  commissionAmount?: string;
+  commissionCurrency?: string;
+  commissionSource?: CommissionSource;
+  paymentStatus: PaymentStatus;
+  paymentMethod?: string;
+  refundedAmount?: string;
+  refundReason?: string;
+  rawEvent?: Record<string, any>;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface OrderFilters {
+  paymentStatus?: PaymentStatus;
+  orderNumber?: string;
+}
+
+export interface OrderSort {
+  by: 'createdAt' | 'totalAmount' | 'orderNumber' | 'paymentStatus';
+  direction: 'asc' | 'desc';
+}
+
+export interface OrderRequest {
+  page: number;
+  pageSize: number;
+  filters?: OrderFilters;
+  sort?: OrderSort;
+}
+
+export interface OrdersResponse {
+  orders: Order[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
 }
 

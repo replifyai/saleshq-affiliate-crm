@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
 
 /**
  * Server-side utility to get authentication tokens from cookies
@@ -115,6 +116,106 @@ export async function refreshTokens(): Promise<boolean> {
   cookieStore.set('auth_refresh_token', data.refreshToken, cookieOptions);
 
   return true;
+}
+
+/**
+ * Centralized error handler for API routes
+ * Extracts the exact error message from backend responses
+ */
+export async function handleApiError(
+  error: unknown,
+  response?: Response
+): Promise<NextResponse> {
+  console.error('API Error:', error);
+
+  // Try to extract error from backend response
+  if (response && !response.ok) {
+    try {
+      // Clone the response so we can read the body without consuming the original
+      let responseToRead: Response | null = null;
+      try {
+        responseToRead = response.clone();
+      } catch (cloneError) {
+        // Body might already be consumed, continue without cloning
+      }
+
+      if (responseToRead) {
+        const errorData = await responseToRead.json().catch(() => null);
+        
+        if (errorData) {
+          // Try common error field names
+          const errorMessage =
+            errorData.message ||
+            errorData.error ||
+            errorData.errorMessage ||
+            errorData.msg ||
+            (typeof errorData === 'string' ? errorData : null) ||
+            'An error occurred';
+
+          return NextResponse.json(
+            { success: false, error: errorMessage },
+            { status: response.status }
+          );
+        }
+      }
+    } catch (parseError) {
+      // If JSON parsing fails, try to get text
+      try {
+        let textResponse: Response | null = null;
+        try {
+          textResponse = response.clone();
+        } catch (cloneError) {
+          // Body might already be consumed
+        }
+
+        if (textResponse) {
+          const errorText = await textResponse.text().catch(() => null);
+          if (errorText) {
+            return NextResponse.json(
+              { success: false, error: errorText },
+              { status: response.status }
+            );
+          }
+        }
+      } catch (textError) {
+        // Fall through to status-based error
+      }
+    }
+
+    // If no error data but response is not ok, return status-based error
+    return NextResponse.json(
+      { success: false, error: `Backend returned ${response.status} ${response.statusText}` },
+      { status: response.status }
+    );
+  }
+
+  // Handle JavaScript errors
+  if (error instanceof Error) {
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 }
+    );
+  }
+
+  // Fallback for unknown errors
+  return NextResponse.json(
+    { success: false, error: 'An unexpected error occurred' },
+    { status: 500 }
+  );
+}
+
+/**
+ * Wrapper to handle backend response errors
+ * Extracts error message from backend response if not ok
+ */
+export async function handleBackendResponse(
+  response: Response
+): Promise<Response> {
+  if (!response.ok) {
+    // Don't throw here, let the caller use handleApiError
+    return response;
+  }
+  return response;
 }
 
 // Single-flight guard for refresh to avoid multiple concurrent refresh calls

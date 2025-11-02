@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchBackend } from '@/lib/server-utils';
+import { fetchBackend, handleApiError } from '@/lib/server-utils';
 
 // Get dashboard stats with authentication
 export async function GET(request: NextRequest) {
@@ -44,11 +44,7 @@ export async function GET(request: NextRequest) {
       data: mockStats,
     });
   } catch (error) {
-    console.error('Dashboard stats error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch stats' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchBackend } from '@/lib/server-utils';
+import { fetchBackend, handleApiError } from '@/lib/server-utils';
 
 export async function PUT(
   request: NextRequest,
@@ -18,8 +18,7 @@ export async function PUT(
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || 'Failed to reject creator');
+      return handleApiError(new Error('Backend request failed'), response);
     }
 
     const data = await response.json();
@@ -30,11 +29,7 @@ export async function PUT(
       data: data.creator,
     });
   } catch (error) {
-    console.error('Reject creator error:', error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to reject creator' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 

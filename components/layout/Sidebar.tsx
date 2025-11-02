@@ -11,12 +11,14 @@ import {
   Ticket,
   LogOut,
   User,
+  ShoppingCart,
 } from 'lucide-react';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Creators', href: '/dashboard/creators', icon: Users },
   { name: 'Coupons', href: '/dashboard/coupons', icon: Ticket },
+  { name: 'Orders', href: '/dashboard/orders', icon: ShoppingCart },
 ];
 
 export function Sidebar() {

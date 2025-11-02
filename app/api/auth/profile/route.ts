@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { handleApiError } from '@/lib/server-utils';
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,10 +27,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    return NextResponse.json(
-      { success: false, error: 'Failed to get profile' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 

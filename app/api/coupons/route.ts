@@ -1,19 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ExternalCoupon, Coupon, CouponType } from '@/types';
-import { fetchBackend } from '@/lib/server-utils';
+import { fetchBackend, handleApiError } from '@/lib/server-utils';
 
 // Helper function to map external API coupon to internal format
 function mapExternalCoupon(externalCoupon: ExternalCoupon): Coupon {
+  console.log("externalCoupon",externalCoupon);
   // Determine coupon type and value
   let type: CouponType = 'percentage';
   let value = 0;
 
+  let currencyCode: string | undefined;
+
   if (externalCoupon.value.type === 'percentage' && externalCoupon.value.percentage !== undefined) {
     type = 'percentage';
     value = externalCoupon.value.percentage;
-  } else if (externalCoupon.value.type === 'fixed_amount' && externalCoupon.value.amount !== undefined) {
+  } else if ((externalCoupon.value.type === 'fixed_amount' || externalCoupon.value.type === 'amount') && externalCoupon.value.amount !== undefined) {
     type = 'fixed_amount';
-    value = externalCoupon.value.amount;
+    // Handle both string and number amounts
+    value = typeof externalCoupon.value.amount === 'string' 
+      ? parseFloat(externalCoupon.value.amount) 
+      : externalCoupon.value.amount;
+    // Extract currency code if available
+    currencyCode = externalCoupon.value.currencyCode;
   }
 
   return {
@@ -23,9 +31,10 @@ function mapExternalCoupon(externalCoupon: ExternalCoupon): Coupon {
     creatorName: externalCoupon.createdBy || 'Unknown',
     type,
     value,
+    currencyCode,
     title: externalCoupon.title,
     description: externalCoupon.description,
-    usageCount: 0, // Not provided by API
+    usageCount: externalCoupon?.usageCount || 0, // Not provided by API
     usageLimit: externalCoupon.usageLimit || undefined,
     validFrom: externalCoupon.startsAt,
     validTo: externalCoupon.endsAt || undefined,
@@ -46,21 +55,32 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10');
 
     // Call external API with authentication
+    // Pass pagination and filter parameters to backend
+    const requestBody = {
+      ...(page && { page }),
+      ...(limit && { limit: limit }),
+      ...(creatorId && creatorId !== 'all' && { creatorId }),
+      ...(active && active !== 'all' && { active: active === 'true' }),
+      ...(search && { search }),
+    };
+
     const response = await fetchBackend('/getAllCouponsForAdmin', {
       method: 'POST',
-      body: '',
+      body: JSON.stringify(requestBody),
     });
 console.log(response);
     if (!response.ok) {
-      throw new Error('Failed to fetch coupons from external API');
+      return handleApiError(new Error('Backend request failed'), response);
     }
 
     const data = await response.json();
+    console.log("data",data);
     
     // Map external coupons to internal format
-    let coupons: Coupon[] = data.coupons.map(mapExternalCoupon);
+    let coupons: Coupon[] = (data.coupons || []).map(mapExternalCoupon);
 
-    // Apply filters
+    // Apply client-side filters if backend didn't handle them
+    // (These filters are also sent to backend, but we apply them as fallback)
     if (creatorId && creatorId !== 'all') {
       coupons = coupons.filter((c) => c.creatorId === creatorId);
     }
@@ -77,31 +97,41 @@ console.log(response);
       );
     }
 
-    // Pagination
-    const totalItems = coupons.length;
-    const totalPages = Math.ceil(totalItems / limit);
-    const start = (page - 1) * limit;
-    const end = start + limit;
-    const paginatedCoupons = coupons.slice(start, end);
+    // Extract pagination metadata from backend response
+    // Support multiple common pagination response formats
+    const backendPagination = data.pagination || data.meta || {};
+    const backendTotal = data.total || backendPagination.total || backendPagination.totalItems || backendPagination.totalRecords;
+    const backendPage = backendPagination.currentPage || backendPagination.page || page;
+    const backendTotalPages = backendPagination.totalPages || (backendTotal ? Math.ceil(backendTotal / limit) : 1);
+    const backendLimit = backendPagination.itemsPerPage || backendPagination.limit || backendPagination.pageSize || limit;
+
+    // Use backend pagination metadata if available, otherwise calculate from filtered data
+    const paginationMeta = {
+      currentPage: backendPage,
+      totalPages: backendTotalPages || Math.ceil(coupons.length / limit),
+      totalItems: backendTotal || coupons.length,
+      itemsPerPage: backendLimit,
+    };
+
+    // If backend provided total count, it likely already paginated
+    // Otherwise, apply client-side pagination as fallback
+    let paginatedCoupons = coupons;
+    if (!backendTotal && coupons.length > limit) {
+      // Backend didn't paginate, apply client-side pagination
+      const start = (page - 1) * limit;
+      const end = start + limit;
+      paginatedCoupons = coupons.slice(start, end);
+    }
 
     return NextResponse.json({
       success: true,
       data: {
         data: paginatedCoupons,
-        meta: {
-          currentPage: page,
-          totalPages,
-          totalItems,
-          itemsPerPage: limit,
-        },
+        meta: paginationMeta,
       },
     });
   } catch (error) {
-    console.error('Error fetching coupons:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch coupons' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -109,41 +139,13 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // TODO: Replace with actual backend call to create coupon
-    console.log('Creating coupon:', body);
-
-    // Mock response
-    const newCoupon = {
-      id: Math.random().toString(36).substr(2, 9),
-      code: `CODE${Math.floor(Math.random() * 10000)}`,
-      creatorId: body.creatorId,
-      creatorName: 'Creator Name',
-      type: body.type,
-      value: body.value,
-      title: body.title || '',
-      description: body.description || '',
-      usageCount: 0,
-      usageLimit: body.usageLimit,
-      validFrom: body.validFrom,
-      validTo: body.validTo,
-      minimumSpend: body.minimumSpend,
-      active: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    mockCoupons.push(newCoupon);
-
-    return NextResponse.json({
-      success: true,
-      data: newCoupon,
-      message: 'Coupon created successfully',
-    });
-  } catch (error) {
+    // TODO: Implement backend API call to create coupon
     return NextResponse.json(
-      { success: false, error: 'Failed to create coupon' },
-      { status: 500 }
+      { success: false, error: 'Coupon creation not yet implemented' },
+      { status: 501 }
     );
+  } catch (error) {
+    return handleApiError(error);
   }
 }
 

@@ -4,15 +4,19 @@ export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
 }
 
-export function formatCurrency(amount: number): string {
+export function formatCurrency(amount: number, currency: string = 'USD'): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency: currency,
   }).format(amount);
 }
 
-export function formatDate(date: string | Date, format = 'MMM dd, yyyy'): string {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
+export function formatDate(date: string | Date | number, format = 'MMM dd, yyyy'): string {
+  const dateObj = typeof date === 'string' 
+    ? new Date(date) 
+    : typeof date === 'number' 
+    ? new Date(date) 
+    : date;
   return new Intl.DateTimeFormat('en-US', {
     year: 'numeric',
     month: 'short',
@@ -20,8 +24,12 @@ export function formatDate(date: string | Date, format = 'MMM dd, yyyy'): string
   }).format(dateObj);
 }
 
-export function formatDateTime(date: string | Date): string {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
+export function formatDateTime(date: string | Date | number): string {
+  const dateObj = typeof date === 'string' 
+    ? new Date(date) 
+    : typeof date === 'number' 
+    ? new Date(date) 
+    : date;
   return new Intl.DateTimeFormat('en-US', {
     year: 'numeric',
     month: 'short',

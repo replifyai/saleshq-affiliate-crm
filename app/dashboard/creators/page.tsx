@@ -110,7 +110,7 @@ export default function CreatorsPage() {
   };
 
   const handleReject = async (creatorId: string) => {
-    if (!confirm('Are you sure you want to reject this creator?')) {
+    if (!confirm('Are you sure you want to reject this creator? This action can be undone by approving them again.')) {
       return;
     }
     
@@ -315,23 +315,25 @@ export default function CreatorsPage() {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            {creator.approved === 'pending' && (
-                              <>
-                                <Button
-                                  variant="primary"
-                                  size="sm"
-                                  onClick={() => handleApprove(creator.id)}
-                                >
-                                  <Check className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="danger"
-                                  size="sm"
-                                  onClick={() => handleReject(creator.id)}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </>
+                            {(creator.approved === 'pending' || creator.approved === 'rejected') && (
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => handleApprove(creator.id)}
+                                title="Approve Creator"
+                              >
+                                <Check className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {(creator.approved === 'pending' || creator.approved === 'approved') && (
+                              <Button
+                                variant="danger"
+                                size="sm"
+                                onClick={() => handleReject(creator.id)}
+                                title="Reject Creator"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
                             )}
                           </div>
                         </td>
@@ -399,7 +401,35 @@ export default function CreatorsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-700">Status</label>
-                  <div className="mt-1">{getStatusBadge(selectedCreator.approved)}</div>
+                  <div className="mt-1 flex items-center gap-2">
+                    {getStatusBadge(selectedCreator.approved)}
+                    {(selectedCreator.approved === 'pending' || selectedCreator.approved === 'rejected') && (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => {
+                          handleApprove(selectedCreator.id);
+                          setShowModal(false);
+                        }}
+                      >
+                        <Check className="h-4 w-4 mr-1" />
+                        Approve
+                      </Button>
+                    )}
+                    {(selectedCreator.approved === 'pending' || selectedCreator.approved === 'approved') && (
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => {
+                          handleReject(selectedCreator.id);
+                          setShowModal(false);
+                        }}
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Reject
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-700">Phone Verified</label>

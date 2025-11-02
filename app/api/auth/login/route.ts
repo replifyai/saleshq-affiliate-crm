@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { handleApiError } from '@/lib/server-utils';
 
 const BACKEND_API_URL = 'https://dashboardapi-dkhjjaxofq-el.a.run.app';
 
@@ -18,10 +19,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!backendResponse.ok) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid credentials' },
-        { status: 401 }
-      );
+      return handleApiError(new Error('Backend request failed'), backendResponse);
     }
 
     const data = await backendResponse.json();
@@ -60,11 +58,7 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error('Login error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Authentication failed' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 

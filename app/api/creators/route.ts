@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchBackend } from '@/lib/server-utils';
+import { fetchBackend, handleApiError } from '@/lib/server-utils';
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch creators from backend');
+      return handleApiError(new Error('Backend request failed'), response);
     }
 
     const data = await response.json();
@@ -37,11 +37,7 @@ export async function POST(request: NextRequest) {
       data: data.creators,
     });
   } catch (error) {
-    console.error('Creators API error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch creators' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
