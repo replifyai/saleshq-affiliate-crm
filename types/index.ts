@@ -189,6 +189,12 @@ export type CommissionBasis = 'subtotal_after_discounts' | 'subtotal' | 'total';
 export type CommissionRateType = 'percentage' | 'fixed';
 export type CommissionSource = 'coupon' | 'referral' | 'pixel';
 
+export interface CommissionData {
+  commissionType: 'fixed' | 'percentage';
+  commissionValue: number;
+  commissionBasis: CommissionBasis;
+}
+
 export interface OrderLineItem {
   id?: string;
   productId?: string;

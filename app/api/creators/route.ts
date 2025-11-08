@@ -13,6 +13,7 @@ export async function POST(request: NextRequest) {
       filters: {
         ...(filters.approved && { approved: filters.approved }),
         ...(filters.phoneNumberVerified !== undefined && { phoneNumberVerified: filters.phoneNumberVerified }),
+        ...(filters.search && { search: filters.search }),
       },
       sort: {
         by: sort.by || 'createdAt',

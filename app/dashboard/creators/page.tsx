@@ -3,13 +3,14 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { apiClient } from '@/lib/api-client';
-import { Creator, CreatorsResponse, CreatorStatus } from '@/types';
+import { Creator, CreatorsResponse, CreatorStatus, CommissionData, CommissionBasis } from '@/types';
 import { formatDate } from '@/lib/utils';
-import { Check, X, Eye, Filter, RefreshCw, Phone, PhoneOff, ArrowUpDown } from 'lucide-react';
+import { Check, X, Eye, Filter, RefreshCw, Phone, PhoneOff, ArrowUpDown, Search } from 'lucide-react';
 
 export default function CreatorsPage() {
   const [creators, setCreators] = useState<Creator[]>([]);
@@ -23,10 +24,30 @@ export default function CreatorsPage() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [showModal, setShowModal] = useState(false);
   const [selectedCreator, setSelectedCreator] = useState<Creator | null>(null);
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [showCommissionModal, setShowCommissionModal] = useState(false);
+  const [creatorToApprove, setCreatorToApprove] = useState<Creator | null>(null);
+  const [approvingCreator, setApprovingCreator] = useState(false);
+  const [commissionData, setCommissionData] = useState<CommissionData>({
+    commissionType: 'percentage',
+    commissionValue: '' as any,
+    commissionBasis: 'subtotal_after_discounts',
+  });
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchInput);
+      setPage(1); // Reset to page 1 when search changes
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   useEffect(() => {
     fetchCreators();
-  }, [page, approvedFilter, phoneVerifiedFilter, sortBy, sortDirection]);
+  }, [page, approvedFilter, phoneVerifiedFilter, sortBy, sortDirection, debouncedSearch]);
 
   const fetchCreators = async () => {
     try {
@@ -38,6 +59,7 @@ export default function CreatorsPage() {
         filters: {
           ...(approvedFilter !== 'all' && { approved: approvedFilter }),
           ...(phoneVerifiedFilter !== 'all' && { phoneNumberVerified: phoneVerifiedFilter }),
+          ...(debouncedSearch && { search: debouncedSearch }),
         },
         sort: {
           by: sortBy,
@@ -83,20 +105,46 @@ export default function CreatorsPage() {
     setPage(1);
   };
 
-  const handleApprove = async (creatorId: string) => {
-    if (!confirm('Are you sure you want to approve this creator?')) {
+  const handleApprove = (creator: Creator) => {
+    setCreatorToApprove(creator);
+    setCommissionData({
+      commissionType: 'percentage',
+      commissionValue: '' as any,
+      commissionBasis: 'subtotal_after_discounts',
+    });
+    setShowCommissionModal(true);
+  };
+
+  const handleApproveWithCommission = async () => {
+    if (!creatorToApprove) return;
+
+    // Validate commission data
+    const commissionValue = typeof commissionData.commissionValue === 'string' 
+      ? parseFloat(commissionData.commissionValue) 
+      : commissionData.commissionValue;
+      
+    if (!commissionValue || commissionValue <= 0) {
+      alert('Commission value must be greater than 0');
       return;
     }
-    
+
     try {
-      setLoading(true);
+      setApprovingCreator(true);
       const response = await apiClient.put<{ success: boolean; message: string; data?: any }>(
-        `/creators/${creatorId}/approve`
+        `/creators/${creatorToApprove.id}/approve`,
+        {
+          commissionData: {
+            ...commissionData,
+            commissionValue
+          }
+        }
       );
       
       if (response.success) {
         await fetchCreators();
-        alert('✓ Creator approved successfully!');
+        alert('✓ Creator approved successfully with commission settings!');
+        setShowCommissionModal(false);
+        setCreatorToApprove(null);
       } else {
         throw new Error(response.message || 'Failed to approve creator');
       }
@@ -105,8 +153,19 @@ export default function CreatorsPage() {
       const errorMessage = error.response?.data?.error || error.message || 'Failed to approve creator';
       alert(`✗ Error: ${errorMessage}`);
     } finally {
-      setLoading(false);
+      setApprovingCreator(false);
     }
+  };
+
+  const handleCloseCommissionModal = () => {
+    setShowCommissionModal(false);
+    setCreatorToApprove(null);
+    setApprovingCreator(false);
+    setCommissionData({
+      commissionType: 'percentage',
+      commissionValue: '' as any,
+      commissionBasis: 'subtotal_after_discounts',
+    });
   };
 
   const handleReject = async (creatorId: string) => {
@@ -177,6 +236,25 @@ export default function CreatorsPage() {
             </div>
           </CardHeader>
           <CardContent>
+            {/* Search Input */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
+                Search Creators
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-5 w-5 text-gray-400 dark:text-slate-500" />
+                </div>
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Search by name, email, or phone..."
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md leading-5 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder-gray-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-blue-500 sm:text-sm"
+                />
+              </div>
+            </div>
+            
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Select
@@ -319,7 +397,7 @@ export default function CreatorsPage() {
                               <Button
                                 variant="primary"
                                 size="sm"
-                                onClick={() => handleApprove(creator.id)}
+                                onClick={() => handleApprove(creator)}
                                 title="Approve Creator"
                               >
                                 <Check className="h-4 w-4" />
@@ -408,7 +486,7 @@ export default function CreatorsPage() {
                         variant="primary"
                         size="sm"
                         onClick={() => {
-                          handleApprove(selectedCreator.id);
+                          handleApprove(selectedCreator);
                           setShowModal(false);
                         }}
                       >
@@ -482,6 +560,96 @@ export default function CreatorsPage() {
                     <p className="text-gray-900">{formatDate(selectedCreator.approvedAt)}</p>
                   </div>
                 )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Commission Modal */}
+      {showCommissionModal && creatorToApprove && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <Card className="max-w-2xl w-full">
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <CardTitle>Set Commission for {creatorToApprove.name}</CardTitle>
+                <Button variant="ghost" onClick={handleCloseCommissionModal} disabled={approvingCreator}>Close</Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 px-4 py-3 rounded-md text-sm">
+                Please set the commission details for this creator. This will determine how much the creator earns when their coupons are used.
+              </div>
+              
+              <div className="w-full">
+                <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
+                  Commission Type
+                </label>
+                <div className="flex h-10 w-full rounded-md border border-gray-300 dark:border-slate-700 bg-gray-100 dark:bg-slate-800 px-3 py-2 text-sm text-gray-600 dark:text-slate-400">
+                  Percentage (%) - Fixed
+                </div>
+                <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+                  Commission type is set to percentage for all creator approvals
+                </p>
+              </div>
+
+              <Input
+                label="Commission Value (%)"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={commissionData.commissionValue}
+                onChange={(e) => setCommissionData({ ...commissionData, commissionValue: e.target.value as any })}
+                placeholder="e.g., 10 for 10%"
+                disabled={approvingCreator}
+              />
+
+              <Select
+                label="Commission Basis"
+                value={commissionData.commissionBasis}
+                onChange={(e) => setCommissionData({ ...commissionData, commissionBasis: e.target.value as CommissionBasis })}
+                options={[
+                  { value: 'subtotal_after_discounts', label: 'Subtotal After Discounts' },
+                  { value: 'subtotal', label: 'Subtotal (Before Discounts)' },
+                  { value: 'total', label: 'Total (Including Tax & Shipping)' },
+                ]}
+                disabled={approvingCreator}
+              />
+
+              <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 px-4 py-3 rounded-md text-sm">
+                <p className="font-medium text-gray-700 dark:text-gray-300 mb-2">Commission Preview:</p>
+                <p className="text-gray-600 dark:text-gray-400">
+                  {commissionData.commissionValue ? (
+                    `${commissionData.commissionValue}% of ${commissionData.commissionBasis.replace(/_/g, ' ')}`
+                  ) : (
+                    'Enter a commission value to see preview'
+                  )}
+                </p>
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  onClick={handleApproveWithCommission} 
+                  className="flex-1"
+                  disabled={approvingCreator}
+                >
+                  {approvingCreator ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Approving...
+                    </>
+                  ) : (
+                    'Approve Creator'
+                  )}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={handleCloseCommissionModal}
+                  disabled={approvingCreator}
+                >
+                  Cancel
+                </Button>
               </div>
             </CardContent>
           </Card>

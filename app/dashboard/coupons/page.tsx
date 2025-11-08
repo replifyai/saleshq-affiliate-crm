@@ -8,7 +8,7 @@ import { Select } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { apiClient } from '@/lib/api-client';
-import { Coupon, CouponFilters, PaginatedResponse, CouponType, Creator } from '@/types';
+import { Coupon, CouponFilters, PaginatedResponse, CouponType, Creator, CommissionData, CommissionBasis } from '@/types';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import { Plus, Eye, Check, X, Copy, Filter, RefreshCw } from 'lucide-react';
 
@@ -26,6 +26,14 @@ export default function CouponsPage() {
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isAssigning, setIsAssigning] = useState(false);
+  const [showCommissionModal, setShowCommissionModal] = useState(false);
+  const [couponToActivate, setCouponToActivate] = useState<Coupon | null>(null);
+  const [activatingCoupon, setActivatingCoupon] = useState(false);
+  const [commissionData, setCommissionData] = useState<CommissionData>({
+    commissionType: 'percentage',
+    commissionValue: 0,
+    commissionBasis: 'subtotal_after_discounts',
+  });
   const [newCoupon, setNewCoupon] = useState({
     creatorId: '',
     type: 'percentage' as CouponType,
@@ -130,11 +138,23 @@ export default function CouponsPage() {
   };
 
   const handleToggleStatus = async (coupon: Coupon) => {
+    // If activating (coupon is currently inactive), show commission modal
+    if (!coupon.active) {
+      setCouponToActivate(coupon);
+      setCommissionData({
+        commissionType: 'percentage',
+        commissionValue: '' as any,
+        commissionBasis: 'subtotal_after_discounts',
+      });
+      setShowCommissionModal(true);
+      return;
+    }
+
+    // If deactivating, proceed directly
     try {
-      const newStatus = coupon.active ? 'INACTIVE' : 'ACTIVE';
       const response = await apiClient.put<{ success: boolean; data: { id: string; active: boolean } }>(
         `/coupons/${coupon.id}/status`,
-        { status: newStatus }
+        { status: 'INACTIVE' }
       );
 
       if (response.success) {
@@ -149,12 +169,74 @@ export default function CouponsPage() {
         if (selectedCoupon && selectedCoupon.id === coupon.id) {
           setSelectedCoupon(updatedCoupon);
         }
-        alert(`Coupon status changed to ${newStatus}`);
+        alert('Coupon deactivated successfully');
       }
     } catch (error) {
       console.error('Failed to change coupon status:', error);
       alert('Failed to change coupon status');
     }
+  };
+
+  const handleActivateCoupon = async () => {
+    if (!couponToActivate) return;
+
+    // Validate commission data
+    const commissionValue = typeof commissionData.commissionValue === 'string' 
+      ? parseFloat(commissionData.commissionValue) 
+      : commissionData.commissionValue;
+      
+    if (!commissionValue || commissionValue <= 0) {
+      alert('Commission value must be greater than 0');
+      return;
+    }
+
+    try {
+      setActivatingCoupon(true);
+      const response = await apiClient.put<{ success: boolean; data: { id: string; active: boolean } }>(
+        `/coupons/${couponToActivate.id}/status`,
+        { 
+          status: 'ACTIVE',
+          commissionData: {
+            ...commissionData,
+            commissionValue
+          }
+        }
+      );
+
+      if (response.success) {
+        const updatedCoupon = { ...couponToActivate, active: response.data.active };
+        // Update the coupon in the local state
+        setCoupons((prevCoupons) =>
+          prevCoupons.map((c) =>
+            c.id === couponToActivate.id ? updatedCoupon : c
+          )
+        );
+        // Update selected coupon if it's the one being modified
+        if (selectedCoupon && selectedCoupon.id === couponToActivate.id) {
+          setSelectedCoupon(updatedCoupon);
+        }
+        alert('Coupon activated successfully with commission settings');
+        setShowCommissionModal(false);
+        setCouponToActivate(null);
+      }
+    } catch (error: any) {
+      console.error('Failed to activate coupon:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to activate coupon';
+      alert(`Error: ${errorMessage}`);
+    } finally {
+      setActivatingCoupon(false);
+    }
+  };
+
+  const handleCloseCommissionModal = () => {
+    setShowCommissionModal(false);
+    setCouponToActivate(null);
+    setActivatingCoupon(false);
+    setCommissionData({
+      commissionType: 'percentage',
+      commissionValue: '' as any,
+      commissionBasis: 'subtotal_after_discounts',
+    });
   };
 
   const getTypeLabel = (type: CouponType) => {
@@ -485,6 +567,96 @@ export default function CouponsPage() {
                     <p className="text-gray-900">{formatDate(selectedCoupon.validFrom)}</p>
                   </div>
                 )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Commission Modal */}
+      {showCommissionModal && couponToActivate && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <Card className="max-w-2xl w-full">
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <CardTitle>Set Commission for {couponToActivate.code}</CardTitle>
+                <Button variant="ghost" onClick={handleCloseCommissionModal}>Close</Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 px-4 py-3 rounded-md text-sm">
+                Please set the commission details for this coupon. This will determine how much the creator earns when their coupon is used.
+              </div>
+              
+              <Select
+                label="Commission Type"
+                value={commissionData.commissionType}
+                onChange={(e) => setCommissionData({ ...commissionData, commissionType: e.target.value as 'fixed' | 'percentage' })}
+                options={[
+                  { value: 'percentage', label: 'Percentage (%)' },
+                  { value: 'fixed', label: 'Fixed Amount' },
+                ]}
+                disabled={activatingCoupon}
+              />
+
+              <Input
+                label="Commission Value"
+                type="number"
+                min="0"
+                step={commissionData.commissionType === 'percentage' ? '0.01' : '1'}
+                value={commissionData.commissionValue}
+                onChange={(e) => setCommissionData({ ...commissionData, commissionValue: e.target.value as any })}
+                placeholder={commissionData.commissionType === 'percentage' ? 'e.g., 10 for 10%' : 'e.g., 100'}
+                disabled={activatingCoupon}
+              />
+
+              <Select
+                label="Commission Basis"
+                value={commissionData.commissionBasis}
+                onChange={(e) => setCommissionData({ ...commissionData, commissionBasis: e.target.value as CommissionBasis })}
+                options={[
+                  { value: 'subtotal_after_discounts', label: 'Subtotal After Discounts' },
+                  { value: 'subtotal', label: 'Subtotal (Before Discounts)' },
+                  { value: 'total', label: 'Total (Including Tax & Shipping)' },
+                ]}
+                disabled={activatingCoupon}
+              />
+
+              <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 px-4 py-3 rounded-md text-sm">
+                <p className="font-medium text-gray-700 dark:text-gray-300 mb-2">Commission Preview:</p>
+                <p className="text-gray-600 dark:text-gray-400">
+                  {commissionData.commissionValue ? (
+                    commissionData.commissionType === 'percentage' 
+                      ? `${commissionData.commissionValue}% of ${commissionData.commissionBasis.replace(/_/g, ' ')}`
+                      : `${formatCurrency(typeof commissionData.commissionValue === 'string' ? parseFloat(commissionData.commissionValue) : commissionData.commissionValue)} per order based on ${commissionData.commissionBasis.replace(/_/g, ' ')}`
+                  ) : (
+                    'Enter a commission value to see preview'
+                  )}
+                </p>
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  onClick={handleActivateCoupon} 
+                  className="flex-1"
+                  disabled={activatingCoupon}
+                >
+                  {activatingCoupon ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Activating...
+                    </>
+                  ) : (
+                    'Activate Coupon'
+                  )}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={handleCloseCommissionModal}
+                  disabled={activatingCoupon}
+                >
+                  Cancel
+                </Button>
               </div>
             </CardContent>
           </Card>

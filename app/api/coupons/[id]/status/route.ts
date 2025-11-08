@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchBackend, handleApiError } from '@/lib/server-utils';
-import { ExternalCoupon } from '@/types';
+import { ExternalCoupon, CommissionData } from '@/types';
 
 export async function PUT(
   request: NextRequest,
@@ -10,7 +10,7 @@ export async function PUT(
     const { id } = await params;
     console.log("id",id);
     const body = await request.json();
-    const { status } = body;
+    const { status, commissionData } = body;
     console.log("body",body);
     console.log("status",status);
     if (!status || (status !== 'ACTIVE' && status !== 'INACTIVE')) {
@@ -27,12 +27,41 @@ export async function PUT(
       );
     }
 
+    // Validate commissionData if status is ACTIVE
+    if (status === 'ACTIVE' && commissionData) {
+      if (!commissionData.commissionType || !['fixed', 'percentage'].includes(commissionData.commissionType)) {
+        return NextResponse.json(
+          { success: false, error: 'Commission type must be fixed or percentage' },
+          { status: 400 }
+        );
+      }
+      
+      if (commissionData.commissionValue === undefined || commissionData.commissionValue < 0) {
+        return NextResponse.json(
+          { success: false, error: 'Commission value must be a positive number' },
+          { status: 400 }
+        );
+      }
+      
+      if (!commissionData.commissionBasis || !['subtotal_after_discounts', 'subtotal', 'total'].includes(commissionData.commissionBasis)) {
+        return NextResponse.json(
+          { success: false, error: 'Commission basis must be subtotal_after_discounts, subtotal, or total' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Call backend API to change coupon status
     // The route parameter 'id' (coupon.id from frontend) is passed as 'couponId' to match the backend API format
-    const requestBody = {
+    const requestBody: any = {
       couponId: id, // This is the coupon.id from the coupon data
       status: status,
     };
+
+    // Add commissionData if provided
+    if (commissionData) {
+      requestBody.commissionData = commissionData;
+    }
 
     console.log('Changing coupon status:', requestBody);
 
