@@ -9,7 +9,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { apiClient } from '@/lib/api-client';
 import { ProductCollection, ShopifyProduct } from '@/types';
 import { formatDate } from '@/lib/utils';
-import { Search, RefreshCw, Package, Eye, ExternalLink, Layers, Plus, X, Trash2, Check, ImageIcon } from 'lucide-react';
+import { Search, RefreshCw, Package, Eye, ExternalLink, Layers, Plus, X, Trash2, Check, ImageIcon, Edit3 } from 'lucide-react';
 
 interface NewCollectionForm {
   name: string;
@@ -44,6 +44,19 @@ export default function CollectionsPage() {
   // Collection details state
   const [collectionProducts, setCollectionProducts] = useState<ShopifyProduct[]>([]);
   const [collectionProductsLoading, setCollectionProductsLoading] = useState(false);
+  
+  // Edit collection state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingCollection, setEditingCollection] = useState<ProductCollection | null>(null);
+  const [editForm, setEditForm] = useState<NewCollectionForm>(initialFormState);
+  const [editing, setEditing] = useState(false);
+  const [editProductSearchQuery, setEditProductSearchQuery] = useState('');
+  const [showEditProductPicker, setShowEditProductPicker] = useState(false);
+  
+  // Delete collection state
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [collectionToDelete, setCollectionToDelete] = useState<ProductCollection | null>(null);
 
   useEffect(() => {
     fetchCollections();
@@ -196,6 +209,138 @@ export default function CollectionsPage() {
     setShowProductPicker(false);
   };
 
+  // Edit collection functions
+  const handleOpenEditModal = (collection: ProductCollection) => {
+    setEditingCollection(collection);
+    setEditForm({
+      name: collection.name,
+      handle: collection.handle,
+      description: collection.description || '',
+      productIds: [...collection.productIds],
+    });
+    setShowEditModal(true);
+    setShowModal(false);
+    fetchProducts();
+  };
+
+  const handleEditNameChange = (name: string) => {
+    setEditForm({
+      ...editForm,
+      name,
+      handle: generateHandle(name),
+    });
+  };
+
+  const handleEditRemoveProductId = (idToRemove: string) => {
+    setEditForm({
+      ...editForm,
+      productIds: editForm.productIds.filter((id) => id !== idToRemove),
+    });
+  };
+
+  const toggleEditProductSelection = (productId: string) => {
+    if (editForm.productIds.includes(productId)) {
+      handleEditRemoveProductId(productId);
+    } else {
+      setEditForm({
+        ...editForm,
+        productIds: [...editForm.productIds, productId],
+      });
+    }
+  };
+
+  const filteredEditProducts = (Array.isArray(allProducts) ? allProducts : []).filter((product) => {
+    if (!editProductSearchQuery) return true;
+    const query = editProductSearchQuery.toLowerCase();
+    return (
+      product.title?.toLowerCase().includes(query) ||
+      product.handle?.toLowerCase().includes(query) ||
+      product.productType?.toLowerCase().includes(query) ||
+      extractProductId(product.id).includes(query)
+    );
+  });
+
+  const handleUpdateCollection = async () => {
+    if (!editingCollection || !editForm.name.trim() || !editForm.handle.trim()) {
+      alert('Name and handle are required');
+      return;
+    }
+
+    try {
+      setEditing(true);
+      const response = await apiClient.put<{ success: boolean; error?: string; data?: ProductCollection }>(
+        `/collections/${editingCollection.id}`,
+        editForm
+      );
+      
+      if (response.success) {
+        alert('Collection updated successfully');
+        setShowEditModal(false);
+        setEditingCollection(null);
+        setEditForm(initialFormState);
+        setEditProductSearchQuery('');
+        setShowEditProductPicker(false);
+        fetchCollections();
+      } else {
+        alert(response.error || 'Failed to update collection');
+      }
+    } catch (error: any) {
+      console.error('Failed to update collection:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to update collection';
+      alert(`Error: ${errorMessage}`);
+    } finally {
+      setEditing(false);
+    }
+  };
+
+  const handleCloseEditModal = () => {
+    setShowEditModal(false);
+    setEditingCollection(null);
+    setEditForm(initialFormState);
+    setEditProductSearchQuery('');
+    setShowEditProductPicker(false);
+  };
+
+  // Delete collection functions
+  const handleDeleteClick = (collection: ProductCollection) => {
+    setCollectionToDelete(collection);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!collectionToDelete) return;
+
+    try {
+      setDeleting(true);
+      const response = await apiClient.delete<{ success: boolean; error?: string; message?: string }>(
+        `/collections/${collectionToDelete.id}`
+      );
+      
+      if (response.success) {
+        alert('Collection deleted successfully');
+        setShowDeleteConfirm(false);
+        setCollectionToDelete(null);
+        setShowModal(false);
+        setSelectedCollection(null);
+        setCollectionProducts([]);
+        fetchCollections();
+      } else {
+        alert(response.error || 'Failed to delete collection');
+      }
+    } catch (error: any) {
+      console.error('Failed to delete collection:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to delete collection';
+      alert(`Error: ${errorMessage}`);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setCollectionToDelete(null);
+  };
+
   // Filter collections based on search query
   const filteredCollections = collections.filter((collection) => {
     if (!searchQuery) return true;
@@ -331,7 +476,21 @@ export default function CollectionsPage() {
                     /{selectedCollection.handle}
                   </p>
                 </div>
-                <Button variant="ghost" onClick={() => { setShowModal(false); setCollectionProducts([]); }}>Close</Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => handleOpenEditModal(selectedCollection)}>
+                    <Edit3 className="h-4 w-4 mr-1" />
+                    Edit
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => handleDeleteClick(selectedCollection)}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Delete
+                  </Button>
+                  <Button variant="ghost" onClick={() => { setShowModal(false); setCollectionProducts([]); }}>Close</Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="overflow-y-auto space-y-6">
@@ -684,6 +843,285 @@ export default function CollectionsPage() {
                   )}
                 </Button>
                 <Button variant="outline" onClick={handleCloseCreateModal} disabled={creating}>
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Edit Collection Modal */}
+      {showEditModal && editingCollection && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <Card className="w-[80%] max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="h-2 bg-gradient-to-r from-amber-500 via-orange-500 to-red-500" />
+            <CardHeader>
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle className="text-xl">Edit Collection</CardTitle>
+                  <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
+                    Update collection details
+                  </p>
+                </div>
+                <Button variant="ghost" onClick={handleCloseEditModal} disabled={editing}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="overflow-y-auto space-y-6">
+              {/* Name and Handle in two columns */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700 dark:text-slate-300 block mb-2">
+                    Collection Name <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    placeholder="e.g., Summer Collection 2024"
+                    value={editForm.name}
+                    onChange={(e) => handleEditNameChange(e.target.value)}
+                    disabled={editing}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-700 dark:text-slate-300 block mb-2">
+                    Handle <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex items-center">
+                    <span className="text-gray-500 dark:text-slate-400 mr-1">/</span>
+                    <Input
+                      placeholder="summer-collection-2024"
+                      value={editForm.handle}
+                      onChange={(e) => setEditForm({ ...editForm, handle: e.target.value })}
+                      disabled={editing}
+                      className="font-mono"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
+                    Auto-generated from name
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-700 dark:text-slate-300 block mb-2">
+                  Description
+                </label>
+                <textarea
+                  placeholder="Describe this collection..."
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  disabled={editing}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  rows={2}
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
+                    Products ({editForm.productIds.length} selected)
+                  </label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowEditProductPicker(!showEditProductPicker)}
+                    disabled={editing}
+                  >
+                    {showEditProductPicker ? 'Hide Picker' : 'Browse Products'}
+                  </Button>
+                </div>
+
+                {/* Product Picker */}
+                {showEditProductPicker && (
+                  <div className="mb-4 border border-gray-200 dark:border-slate-700 rounded-lg overflow-hidden">
+                    <div className="p-3 bg-gray-50 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          placeholder="Search products by name, handle, or ID..."
+                          value={editProductSearchQuery}
+                          onChange={(e) => setEditProductSearchQuery(e.target.value)}
+                          className="pl-10"
+                          disabled={editing}
+                        />
+                      </div>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto p-2">
+                      {productsLoading ? (
+                        <div className="flex justify-center items-center py-6">
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                        </div>
+                      ) : filteredEditProducts.length === 0 ? (
+                        <div className="text-center py-6">
+                          <Package className="mx-auto h-6 w-6 text-gray-400 mb-1" />
+                          <p className="text-xs text-gray-500 dark:text-slate-400">
+                            {editProductSearchQuery ? 'No products match your search' : 'No products available'}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                          {filteredEditProducts.map((product) => {
+                            const isSelected = editForm.productIds.includes(product.id);
+                            return (
+                              <div
+                                key={product.id}
+                                onClick={() => !editing && toggleEditProductSelection(product.id)}
+                                className={`relative p-1.5 rounded cursor-pointer transition-all ${
+                                  isSelected
+                                    ? 'bg-amber-50 dark:bg-amber-900/30 ring-2 ring-amber-500'
+                                    : 'hover:bg-gray-100 dark:hover:bg-slate-700'
+                                }`}
+                              >
+                                {/* Selection Indicator */}
+                                {isSelected && (
+                                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center z-10">
+                                    <Check className="h-2.5 w-2.5 text-white" />
+                                  </div>
+                                )}
+                                
+                                {/* Product Image */}
+                                <div className="w-full aspect-square rounded overflow-hidden bg-gray-100 dark:bg-slate-700 mb-1">
+                                  {product.images && product.images.length > 0 ? (
+                                    <img
+                                      src={product.images[0]}
+                                      alt={product.title}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <ImageIcon className="h-4 w-4 text-gray-400" />
+                                    </div>
+                                  )}
+                                </div>
+                                
+                                {/* Product Info */}
+                                <p className="text-[10px] font-medium text-gray-900 dark:text-slate-100 truncate leading-tight">
+                                  {product.title}
+                                </p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Selected Products Display */}
+                {editForm.productIds.length > 0 && (
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Selected ({editForm.productIds.length}):</p>
+                    <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
+                      {editForm.productIds.map((productId) => {
+                        const product = allProducts.find(p => p.id === productId);
+                        return (
+                          <div
+                            key={productId}
+                            className="relative group flex items-center gap-1.5 pl-1 pr-5 py-1 bg-gray-100 dark:bg-slate-800 rounded-full border border-gray-200 dark:border-slate-700"
+                          >
+                            {product?.images?.[0] ? (
+                              <img
+                                src={product.images[0]}
+                                alt={product.title}
+                                className="w-5 h-5 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-5 h-5 rounded-full bg-gray-200 dark:bg-slate-700 flex items-center justify-center">
+                                <ImageIcon className="h-3 w-3 text-gray-400" />
+                              </div>
+                            )}
+                            <span className="text-[10px] text-gray-700 dark:text-slate-300 truncate max-w-[80px]">
+                              {product?.title || extractProductId(productId)}
+                            </span>
+                            <button
+                              onClick={() => handleEditRemoveProductId(productId)}
+                              disabled={editing}
+                              className="absolute right-1 w-4 h-4 bg-gray-300 dark:bg-slate-600 hover:bg-red-500 rounded-full flex items-center justify-center transition-colors"
+                            >
+                              <X className="h-2.5 w-2.5 text-gray-600 dark:text-slate-300 hover:text-white" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                
+                {editForm.productIds.length === 0 && !showEditProductPicker && (
+                  <div className="text-center py-6 bg-gray-50 dark:bg-slate-800 rounded-lg border border-dashed border-gray-300 dark:border-slate-600">
+                    <Package className="mx-auto h-8 w-8 text-gray-400 dark:text-slate-500 mb-2" />
+                    <p className="text-sm text-gray-500 dark:text-slate-400">
+                      No products in collection. Click &quot;Browse Products&quot; to add some.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-slate-700">
+                <Button
+                  onClick={handleUpdateCollection}
+                  disabled={editing || !editForm.name.trim() || !editForm.handle.trim()}
+                  className="flex-1"
+                >
+                  {editing ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Updating...
+                    </>
+                  ) : (
+                    <>
+                      <Edit3 className="h-4 w-4 mr-2" />
+                      Update Collection
+                    </>
+                  )}
+                </Button>
+                <Button variant="outline" onClick={handleCloseEditModal} disabled={editing}>
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && collectionToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <Card className="w-full max-w-md">
+            <div className="h-2 bg-gradient-to-r from-red-500 via-red-600 to-red-700" />
+            <CardHeader>
+              <CardTitle className="text-xl text-red-600 dark:text-red-400">Delete Collection</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-gray-700 dark:text-slate-300">
+                Are you sure you want to delete <strong className="text-gray-900 dark:text-slate-100">{collectionToDelete.name}</strong>?
+              </p>
+              <p className="text-sm text-gray-500 dark:text-slate-400">
+                This action cannot be undone. The collection and all its associations will be permanently removed.
+              </p>
+              
+              <div className="flex gap-3 pt-4">
+                <Button
+                  onClick={handleConfirmDelete}
+                  disabled={deleting}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                >
+                  {deleting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Collection
+                    </>
+                  )}
+                </Button>
+                <Button variant="outline" onClick={handleCancelDelete} disabled={deleting}>
                   Cancel
                 </Button>
               </div>
