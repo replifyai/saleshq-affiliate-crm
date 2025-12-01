@@ -265,3 +265,36 @@ export interface OrdersResponse {
   };
 }
 
+// Product Collection types
+export interface ProductCollection {
+  id: string;
+  name: string;
+  handle: string;
+  description?: string;
+  productIds: string[];
+  createdAt: number;
+  updatedAt: number;
+  createdBy: string;
+}
+
+export interface ProductCollectionsResponse {
+  productCollections: ProductCollection[];
+}
+
+// Shopify Product types
+export interface ShopifyProduct {
+  id: string;
+  title: string;
+  handle: string;
+  status: 'ACTIVE' | 'ARCHIVED' | 'DRAFT';
+  productType: string;
+  images: string[];
+  vendor?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ShopifyProductsResponse {
+  products: ShopifyProduct[];
+}
+

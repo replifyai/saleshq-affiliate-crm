@@ -12,12 +12,14 @@ import {
   LogOut,
   User,
   ShoppingCart,
+  Layers,
 } from 'lucide-react';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Creators', href: '/dashboard/creators', icon: Users },
   { name: 'Coupons', href: '/dashboard/coupons', icon: Ticket },
+  { name: 'Collections', href: '/dashboard/collections', icon: Layers },
   { name: 'Orders', href: '/dashboard/orders', icon: ShoppingCart },
 ];
 
