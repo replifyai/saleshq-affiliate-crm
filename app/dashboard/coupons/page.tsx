@@ -255,8 +255,8 @@ export default function CouponsPage() {
       <div className="p-8">
         <div className="mb-8 flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-slate-100">Coupons</h1>
-            <p className="text-gray-600 dark:text-slate-400 mt-2">Manage coupons and assign to creators</p>
+            <h1 className="text-3xl font-bold text-foreground">Coupons</h1>
+            <p className="text-muted mt-2">Manage coupons and assign to creators</p>
           </div>
           <Button onClick={() => setShowCreateModal(true)}>
             <Plus className="h-4 w-4 mr-2" />
@@ -268,14 +268,14 @@ export default function CouponsPage() {
         <Card className="mb-6">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
-              <Filter className="h-5 w-5 text-gray-600 dark:text-slate-400" />
+              <Filter className="h-5 w-5 text-muted" />
               <CardTitle className="text-lg">Filters</CardTitle>
             </div>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-slate-300">Search</label>
+                <label className="text-sm font-medium text-foreground">Search</label>
                 <Input
                   placeholder="Search by code..."
                   value={filters.search}
@@ -323,33 +323,33 @@ export default function CouponsPage() {
           <CardContent>
             {loading ? (
               <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-500"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent"></div>
               </div>
             ) : coupons.length === 0 ? (
-              <div className="text-center py-12 text-gray-500 dark:text-slate-400">
+              <div className="text-center py-12 text-muted">
                 No coupons found
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200 dark:border-slate-800">
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Code</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Creator</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Discount</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Discount Type</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Usage</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Status</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Created</th>
-                      <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Actions</th>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Code</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Creator</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Discount</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Discount Type</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Usage</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Status</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Created</th>
+                      <th className="text-right py-3 px-4 text-sm font-semibold text-foreground">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {coupons.map((coupon) => (
-                      <tr key={coupon.id} className="border-b border-gray-100 hover:bg-gray-50 dark:border-slate-800 dark:hover:bg-slate-800/50 group">
-                        <td className="py-3 px-4 font-mono font-semibold dark:text-slate-200 group-hover:text-gray-900 dark:group-hover:text-white">{coupon.code}</td>
-                        <td className="py-3 px-4 dark:text-slate-200 group-hover:text-gray-900 dark:group-hover:text-white">{coupon.creatorName}</td>
-                        <td className="py-3 px-4 dark:text-slate-200 group-hover:text-gray-900 dark:group-hover:text-white">
+                      <tr key={coupon.id} className="border-b border-border hover:bg-secondary group">
+                        <td className="py-3 px-4 font-mono font-semibold text-foreground">{coupon.code}</td>
+                        <td className="py-3 px-4 text-foreground">{coupon.creatorName}</td>
+                        <td className="py-3 px-4 text-foreground">
                           {coupon.type === 'percentage'
                             ? `${coupon.value}%`
                             : coupon.type === 'fixed_amount'
@@ -359,7 +359,7 @@ export default function CouponsPage() {
                         <td className="py-3 px-4">
                           <Badge variant="default">{getTypeLabel(coupon.type)}</Badge>
                         </td>
-                        <td className="py-3 px-4 dark:text-slate-200 group-hover:text-gray-900 dark:group-hover:text-white">
+                        <td className="py-3 px-4 text-foreground">
                           {coupon.usageLimit
                             ? `${coupon.usageCount}/${coupon.usageLimit}`
                             : coupon.usageCount}
@@ -379,14 +379,14 @@ export default function CouponsPage() {
                               className="ml-2"
                             >
                               {coupon.active ? (
-                                <X className="h-4 w-4 text-red-600" />
+                                <X className="h-4 w-4 text-destructive" />
                               ) : (
-                                <Check className="h-4 w-4 text-green-600" />
+                                <Check className="h-4 w-4 text-success" />
                               )}
                             </Button>
                           </div>
                         </td>
-                        <td className="py-3 px-4 text-gray-600 dark:text-slate-300 group-hover:text-gray-900 dark:group-hover:text-white">{formatDate(coupon.createdAt)}</td>
+                        <td className="py-3 px-4 text-muted">{formatDate(coupon.createdAt)}</td>
                         <td className="py-3 px-4">
                           <div className="flex justify-end gap-2">
                             <Button
@@ -430,7 +430,7 @@ export default function CouponsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {isAssigning && (
-                <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-md text-sm">
+                <div className="bg-accent/10 border border-accent/30 text-foreground px-4 py-3 rounded-md text-sm">
                   Select a creator to assign this coupon configuration to. The form is pre-filled with the existing coupon details.
                 </div>
               )}
@@ -506,12 +506,12 @@ export default function CouponsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-gray-700">Creator</label>
-                <p className="text-gray-900">{selectedCoupon.creatorName}</p>
+                <label className="text-sm font-medium text-muted">Creator</label>
+                <p className="text-foreground">{selectedCoupon.creatorName}</p>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700">Discount</label>
-                <p className="text-gray-900">
+                <label className="text-sm font-medium text-muted">Discount</label>
+                <p className="text-foreground">
                   {selectedCoupon.type === 'percentage'
                     ? `${selectedCoupon.value}% ${getTypeLabel(selectedCoupon.type)}`
                     : selectedCoupon.type === 'fixed_amount'
@@ -520,15 +520,15 @@ export default function CouponsPage() {
                 </p>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700">Usage</label>
-                <p className="text-gray-900">
+                <label className="text-sm font-medium text-muted">Usage</label>
+                <p className="text-foreground">
                   {selectedCoupon.usageLimit
                     ? `${selectedCoupon.usageCount}/${selectedCoupon.usageLimit} uses`
                     : `${selectedCoupon.usageCount} uses`}
                 </p>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700">Status</label>
+                <label className="text-sm font-medium text-muted">Status</label>
                 <div className="mt-1 flex items-center gap-2">
                   {selectedCoupon.active ? (
                     <Badge variant="success">Active</Badge>
@@ -546,25 +546,25 @@ export default function CouponsPage() {
               </div>
               {selectedCoupon.title && (
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Title</label>
-                  <p className="text-gray-900">{selectedCoupon.title}</p>
+                  <label className="text-sm font-medium text-muted">Title</label>
+                  <p className="text-foreground">{selectedCoupon.title}</p>
                 </div>
               )}
               {selectedCoupon.description && (
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Description</label>
-                  <p className="text-gray-900">{selectedCoupon.description}</p>
+                  <label className="text-sm font-medium text-muted">Description</label>
+                  <p className="text-foreground">{selectedCoupon.description}</p>
                 </div>
               )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Created</label>
-                  <p className="text-gray-900">{formatDate(selectedCoupon.createdAt)}</p>
+                  <label className="text-sm font-medium text-muted">Created</label>
+                  <p className="text-foreground">{formatDate(selectedCoupon.createdAt)}</p>
                 </div>
                 {selectedCoupon.validFrom && (
                   <div>
-                    <label className="text-sm font-medium text-gray-700">Valid From</label>
-                    <p className="text-gray-900">{formatDate(selectedCoupon.validFrom)}</p>
+                    <label className="text-sm font-medium text-muted">Valid From</label>
+                    <p className="text-foreground">{formatDate(selectedCoupon.validFrom)}</p>
                   </div>
                 )}
               </div>
@@ -584,7 +584,7 @@ export default function CouponsPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 px-4 py-3 rounded-md text-sm">
+              <div className="bg-accent/10 border border-accent/30 text-foreground px-4 py-3 rounded-md text-sm">
                 Please set the commission details for this coupon. This will determine how much the creator earns when their coupon is used.
               </div>
               
@@ -622,9 +622,9 @@ export default function CouponsPage() {
                 disabled={activatingCoupon}
               />
 
-              <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 px-4 py-3 rounded-md text-sm">
-                <p className="font-medium text-gray-700 dark:text-gray-300 mb-2">Commission Preview:</p>
-                <p className="text-gray-600 dark:text-gray-400">
+              <div className="bg-secondary border border-border px-4 py-3 rounded-md text-sm">
+                <p className="font-medium text-foreground mb-2">Commission Preview:</p>
+                <p className="text-muted">
                   {commissionData.commissionValue ? (
                     commissionData.commissionType === 'percentage' 
                       ? `${commissionData.commissionValue}% of ${commissionData.commissionBasis.replace(/_/g, ' ')}`
@@ -643,7 +643,7 @@ export default function CouponsPage() {
                 >
                   {activatingCoupon ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2"></div>
                       Activating...
                     </>
                   ) : (
@@ -665,4 +665,3 @@ export default function CouponsPage() {
     </DashboardLayout>
   );
 }
-

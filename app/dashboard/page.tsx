@@ -67,37 +67,37 @@ export default function DashboardPage() {
       title: 'Total Revenue',
       value: stats ? formatCurrency(stats.totalRevenue) : '$0',
       icon: DollarSign,
-      color: 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-300',
+      color: 'bg-success/10 text-success',
     },
     {
       title: 'Total Orders',
       value: stats.totalOrders ? stats.totalOrders.toLocaleString() : '0',
       icon: ShoppingCart,
-      color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300',
+      color: 'bg-accent/20 text-accent-foreground',
     },
     {
       title: 'Active Creators',
       value: stats.activeCreators ? stats.activeCreators.toString() : '0',
       icon: Users,
-      color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-300',
+      color: 'bg-primary/20 text-primary-foreground',
     },
     {
       title: 'Active Coupons',
       value: stats.activeCoupons ? stats.activeCoupons.toString() : '0',
       icon: Ticket,
-      color: 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-300',
+      color: 'bg-warning/20 text-warning-foreground',
     },
     {
       title: 'Conversion Rate',
       value: stats ? `${stats.conversionRate.toFixed(2)}%` : '0%',
       icon: Percent,
-      color: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300',
+      color: 'bg-destructive/10 text-destructive',
     },
     {
       title: 'Average Order Value',
       value: stats ? formatCurrency(stats.averageOrderValue) : '$0',
       icon: TrendingUp,
-      color: 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-300',
+      color: 'bg-secondary text-secondary-foreground border border-border',
     },
   ];
 
@@ -105,8 +105,8 @@ export default function DashboardPage() {
     <DashboardLayout>
       <div className="p-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-slate-100">Dashboard</h1>
-          <p className="text-gray-600 dark:text-slate-400 mt-2">Overview of your affiliate program performance</p>
+          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-muted mt-2">Overview of your affiliate program performance</p>
         </div>
 
         {/* Date Filter */}
@@ -118,8 +118,8 @@ export default function DashboardPage() {
                 onClick={() => handleDateChange(days)}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                   selectedDays === days
-                    ? 'bg-blue-600 text-white dark:bg-blue-500'
-                    : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:border-slate-700'
+                    ? 'bg-primary text-primary-foreground border border-border-brand'
+                    : 'bg-white text-foreground hover:bg-secondary border border-border'
                 }`}
               >
                 Last {days === 1 ? '24 Hours' : `${days} Days`}
@@ -131,7 +131,7 @@ export default function DashboardPage() {
         {/* Stats Grid */}
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-500"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent"></div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -140,8 +140,8 @@ export default function DashboardPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600 dark:text-slate-400 mb-1">{card.title}</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-slate-100">{card.value}</p>
+                      <p className="text-sm text-muted mb-1">{card.title}</p>
+                      <p className="text-2xl font-bold text-foreground">{card.value}</p>
                     </div>
                     <div className={`p-3 rounded-lg ${card.color}`}>
                       <card.icon className="h-6 w-6" />
@@ -163,12 +163,12 @@ export default function DashboardPage() {
               <CardContent>
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-slate-400">Total Creators</span>
-                    <span className="font-semibold dark:text-slate-200">{stats.totalCreators}</span>
+                    <span className="text-muted">Total Creators</span>
+                    <span className="font-semibold text-foreground">{stats.totalCreators}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-slate-400">Pending Approval</span>
-                    <span className="font-semibold text-yellow-600 dark:text-yellow-400">{stats.pendingCreators}</span>
+                    <span className="text-muted">Pending Approval</span>
+                    <span className="font-semibold text-warning-foreground">{stats.pendingCreators}</span>
                   </div>
                 </div>
               </CardContent>
@@ -181,12 +181,12 @@ export default function DashboardPage() {
               <CardContent>
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-slate-400">Total Coupons</span>
-                    <span className="font-semibold dark:text-slate-200">{stats.totalCoupons}</span>
+                    <span className="text-muted">Total Coupons</span>
+                    <span className="font-semibold text-foreground">{stats.totalCoupons}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-slate-400">Active Coupons</span>
-                    <span className="font-semibold text-green-600 dark:text-green-400">{stats.activeCoupons}</span>
+                    <span className="text-muted">Active Coupons</span>
+                    <span className="font-semibold text-success">{stats.activeCoupons}</span>
                   </div>
                 </div>
               </CardContent>
@@ -199,12 +199,12 @@ export default function DashboardPage() {
               <CardContent>
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-slate-400">Orders</span>
-                    <span className="font-semibold dark:text-slate-200">{stats.totalOrders}</span>
+                    <span className="text-muted">Orders</span>
+                    <span className="font-semibold text-foreground">{stats.totalOrders}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-slate-400">Revenue</span>
-                    <span className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(stats.totalRevenue)}</span>
+                    <span className="text-muted">Revenue</span>
+                    <span className="font-semibold text-success">{formatCurrency(stats.totalRevenue)}</span>
                   </div>
                 </div>
               </CardContent>
@@ -215,4 +215,3 @@ export default function DashboardPage() {
     </DashboardLayout>
   );
 }
-

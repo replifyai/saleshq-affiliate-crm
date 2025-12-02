@@ -357,8 +357,8 @@ export default function CollectionsPage() {
       <div className="p-8">
         <div className="mb-8 flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-slate-100">Collections</h1>
-            <p className="text-gray-600 dark:text-slate-400 mt-2">View and create product collections for creators</p>
+            <h1 className="text-3xl font-bold text-foreground">Collections</h1>
+            <p className="text-muted mt-2">View and create product collections for creators</p>
           </div>
           <div className="flex gap-3">
             <Button onClick={fetchCollections} variant="outline">
@@ -377,7 +377,7 @@ export default function CollectionsPage() {
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
               <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
                 <Input
                   placeholder="Search by name, handle, or description..."
                   value={searchQuery}
@@ -385,7 +385,7 @@ export default function CollectionsPage() {
                   className="pl-10"
                 />
               </div>
-              <div className="text-sm text-gray-500 dark:text-slate-400">
+              <div className="text-sm text-muted">
                 {filteredCollections.length} collection{filteredCollections.length !== 1 ? 's' : ''} found
               </div>
             </div>
@@ -395,15 +395,15 @@ export default function CollectionsPage() {
         {/* Collections Grid */}
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-500"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent"></div>
           </div>
         ) : filteredCollections.length === 0 ? (
           <Card>
             <CardContent className="py-16">
               <div className="text-center">
-                <Layers className="mx-auto h-12 w-12 text-gray-400 dark:text-slate-600 mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 dark:text-slate-100 mb-2">No collections found</h3>
-                <p className="text-gray-500 dark:text-slate-400">
+                <Layers className="mx-auto h-12 w-12 text-muted mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">No collections found</h3>
+                <p className="text-muted">
                   {searchQuery ? 'Try adjusting your search query' : 'Collections will appear here once creators create them'}
                 </p>
               </div>
@@ -413,14 +413,14 @@ export default function CollectionsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredCollections.map((collection) => (
               <Card key={collection.id} className="group hover:shadow-lg transition-shadow duration-200 overflow-hidden">
-                <div className="h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
+                <div className="h-2 bg-brand-gradient" />
                 <CardHeader className="pb-3">
                   <div className="flex justify-between items-start">
                     <div className="flex-1 min-w-0">
-                      <CardTitle className="text-lg truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                      <CardTitle className="text-lg truncate group-hover:text-accent transition-colors">
                         {collection.name}
                       </CardTitle>
-                      <p className="text-sm text-gray-500 dark:text-slate-400 font-mono mt-1 truncate">
+                      <p className="text-sm text-muted font-mono mt-1 truncate">
                         /{collection.handle}
                       </p>
                     </div>
@@ -432,16 +432,16 @@ export default function CollectionsPage() {
                 </CardHeader>
                 <CardContent className="pt-0">
                   {collection.description ? (
-                    <p className="text-sm text-gray-600 dark:text-slate-300 line-clamp-2 mb-4">
+                    <p className="text-sm text-muted line-clamp-2 mb-4">
                       {collection.description}
                     </p>
                   ) : (
-                    <p className="text-sm text-gray-400 dark:text-slate-500 italic mb-4">
+                    <p className="text-sm text-muted italic mb-4">
                       No description
                     </p>
                   )}
                   
-                  <div className="flex items-center justify-between text-xs text-gray-500 dark:text-slate-400 mb-4">
+                  <div className="flex items-center justify-between text-xs text-muted mb-4">
                     <span>Created {formatDate(collection.createdAt)}</span>
                   </div>
 
@@ -467,12 +467,12 @@ export default function CollectionsPage() {
       {showModal && selectedCollection && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <Card className="w-[80%] max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
+            <div className="h-2 bg-brand-gradient" />
             <CardHeader>
               <div className="flex justify-between items-start">
                 <div className="flex-1 min-w-0 pr-4">
                   <CardTitle className="text-xl">{selectedCollection.name}</CardTitle>
-                  <p className="text-sm text-gray-500 dark:text-slate-400 font-mono mt-1">
+                  <p className="text-sm text-muted font-mono mt-1">
                     /{selectedCollection.handle}
                   </p>
                 </div>
@@ -484,7 +484,7 @@ export default function CollectionsPage() {
                   <Button 
                     variant="outline" 
                     onClick={() => handleDeleteClick(selectedCollection)}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
                   >
                     <Trash2 className="h-4 w-4 mr-1" />
                     Delete
@@ -496,36 +496,36 @@ export default function CollectionsPage() {
             <CardContent className="overflow-y-auto space-y-6">
               {selectedCollection.description && (
                 <div>
-                  <label className="text-sm font-medium text-gray-700 dark:text-slate-300">Description</label>
-                  <p className="text-gray-900 dark:text-slate-100 mt-1">{selectedCollection.description}</p>
+                  <label className="text-sm font-medium text-muted">Description</label>
+                  <p className="text-foreground mt-1">{selectedCollection.description}</p>
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-700 dark:text-slate-300">Created</label>
-                  <p className="text-gray-900 dark:text-slate-100 mt-1">{formatDate(selectedCollection.createdAt)}</p>
+                  <label className="text-sm font-medium text-muted">Created</label>
+                  <p className="text-foreground mt-1">{formatDate(selectedCollection.createdAt)}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700 dark:text-slate-300">Last Updated</label>
-                  <p className="text-gray-900 dark:text-slate-100 mt-1">{formatDate(selectedCollection.updatedAt)}</p>
+                  <label className="text-sm font-medium text-muted">Last Updated</label>
+                  <p className="text-foreground mt-1">{formatDate(selectedCollection.updatedAt)}</p>
                 </div>
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-slate-300">Created By</label>
-                <p className="text-gray-900 dark:text-slate-100 mt-1 font-mono text-sm">{selectedCollection.createdBy}</p>
+                <label className="text-sm font-medium text-muted">Created By</label>
+                <p className="text-foreground mt-1 font-mono text-sm">{selectedCollection.createdBy}</p>
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-slate-300 block mb-3">
+                <label className="text-sm font-medium text-muted block mb-3">
                   Products ({selectedCollection.productIds.length})
                 </label>
                 {selectedCollection.productIds.length === 0 ? (
-                  <p className="text-gray-500 dark:text-slate-400 text-sm italic">No products in this collection</p>
+                  <p className="text-muted text-sm italic">No products in this collection</p>
                 ) : collectionProductsLoading ? (
                   <div className="flex justify-center items-center py-8">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-accent"></div>
                   </div>
                 ) : (
                   <div className="max-h-80 overflow-y-auto">
@@ -534,20 +534,20 @@ export default function CollectionsPage() {
                         {collectionProducts.map((product) => (
                           <div
                             key={product.id}
-                            className="relative p-2 bg-gray-50 dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 group"
+                            className="relative p-2 bg-secondary rounded-lg border border-border group"
                           >
                             {/* External Link */}
                             <a
                               href={`https://admin.shopify.com/products/${extractProductId(product.id)}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="absolute top-1 right-1 w-6 h-6 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                              className="absolute top-1 right-1 w-6 h-6 bg-accent hover:bg-primary rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
                             >
-                              <ExternalLink className="h-3 w-3 text-white" />
+                              <ExternalLink className="h-3 w-3 text-accent-foreground" />
                             </a>
                             
                             {/* Product Image */}
-                            <div className="w-full aspect-square rounded-md overflow-hidden bg-gray-100 dark:bg-slate-700 mb-2">
+                            <div className="w-full aspect-square rounded-md overflow-hidden bg-white border border-border mb-2">
                               {product.images && product.images.length > 0 ? (
                                 <img
                                   src={product.images[0]}
@@ -556,13 +556,13 @@ export default function CollectionsPage() {
                                 />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center">
-                                  <ImageIcon className="h-6 w-6 text-gray-400" />
+                                  <ImageIcon className="h-6 w-6 text-muted" />
                                 </div>
                               )}
                             </div>
                             
                             {/* Product Info */}
-                            <p className="text-xs font-medium text-gray-900 dark:text-slate-100 truncate">
+                            <p className="text-xs font-medium text-foreground truncate">
                               {product.title}
                             </p>
                             <div className="flex items-center gap-1 mt-1">
@@ -574,7 +574,7 @@ export default function CollectionsPage() {
                               </Badge>
                             </div>
                             {product.productType && (
-                              <p className="text-xs text-gray-500 dark:text-slate-400 mt-1 truncate">
+                              <p className="text-xs text-muted mt-1 truncate">
                                 {product.productType}
                               </p>
                             )}
@@ -587,20 +587,20 @@ export default function CollectionsPage() {
                         {selectedCollection.productIds.map((productId, index) => (
                           <div
                             key={productId}
-                            className="relative p-2 bg-gray-50 dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 group"
+                            className="relative p-2 bg-secondary rounded-lg border border-border group"
                           >
                             <a
                               href={`https://admin.shopify.com/products/${extractProductId(productId)}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="absolute top-1 right-1 w-5 h-5 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="absolute top-1 right-1 w-5 h-5 bg-accent hover:bg-primary rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                             >
-                              <ExternalLink className="h-3 w-3 text-white" />
+                              <ExternalLink className="h-3 w-3 text-accent-foreground" />
                             </a>
-                            <div className="w-full aspect-square rounded bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-lg font-bold mb-1">
+                            <div className="w-full aspect-square rounded bg-brand-gradient flex items-center justify-center text-foreground text-lg font-bold mb-1">
                               {index + 1}
                             </div>
-                            <p className="text-xs font-mono text-gray-700 dark:text-slate-300 truncate text-center">
+                            <p className="text-xs font-mono text-muted truncate text-center">
                               {extractProductId(productId)}
                             </p>
                           </div>
@@ -619,12 +619,12 @@ export default function CollectionsPage() {
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <Card className="w-[80%] max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="h-2 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500" />
+            <div className="h-2 bg-brand-gradient" />
             <CardHeader>
               <div className="flex justify-between items-start">
                 <div>
                   <CardTitle className="text-xl">Create New Collection</CardTitle>
-                  <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
+                  <p className="text-sm text-muted mt-1">
                     Add a new product collection
                   </p>
                 </div>
@@ -637,8 +637,8 @@ export default function CollectionsPage() {
               {/* Name and Handle in two columns */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-700 dark:text-slate-300 block mb-2">
-                    Collection Name <span className="text-red-500">*</span>
+                  <label className="text-sm font-medium text-foreground block mb-2">
+                    Collection Name <span className="text-destructive">*</span>
                   </label>
                   <Input
                     placeholder="e.g., Summer Collection 2024"
@@ -649,11 +649,11 @@ export default function CollectionsPage() {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-gray-700 dark:text-slate-300 block mb-2">
-                    Handle <span className="text-red-500">*</span>
+                  <label className="text-sm font-medium text-foreground block mb-2">
+                    Handle <span className="text-destructive">*</span>
                   </label>
                   <div className="flex items-center">
-                    <span className="text-gray-500 dark:text-slate-400 mr-1">/</span>
+                    <span className="text-muted mr-1">/</span>
                     <Input
                       placeholder="summer-collection-2024"
                       value={newCollection.handle}
@@ -662,14 +662,14 @@ export default function CollectionsPage() {
                       className="font-mono"
                     />
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
+                  <p className="text-xs text-muted mt-1">
                     Auto-generated from name
                   </p>
                 </div>
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-slate-300 block mb-2">
+                <label className="text-sm font-medium text-foreground block mb-2">
                   Description
                 </label>
                 <textarea
@@ -677,14 +677,14 @@ export default function CollectionsPage() {
                   value={newCollection.description}
                   onChange={(e) => setNewCollection({ ...newCollection, description: e.target.value })}
                   disabled={creating}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="w-full px-3 py-2 border border-border rounded-md bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-accent resize-none"
                   rows={2}
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
+                  <label className="text-sm font-medium text-foreground">
                     Products ({newCollection.productIds.length} selected)
                   </label>
                   <Button
@@ -700,10 +700,10 @@ export default function CollectionsPage() {
 
                 {/* Product Picker */}
                 {showProductPicker && (
-                  <div className="mb-4 border border-gray-200 dark:border-slate-700 rounded-lg overflow-hidden">
-                    <div className="p-3 bg-gray-50 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
+                  <div className="mb-4 border border-border rounded-lg overflow-hidden">
+                    <div className="p-3 bg-secondary border-b border-border">
                       <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
                         <Input
                           placeholder="Search products by name, handle, or ID..."
                           value={productSearchQuery}
@@ -716,12 +716,12 @@ export default function CollectionsPage() {
                     <div className="max-h-64 overflow-y-auto p-2">
                       {productsLoading ? (
                         <div className="flex justify-center items-center py-6">
-                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-accent"></div>
                         </div>
                       ) : filteredProducts.length === 0 ? (
                         <div className="text-center py-6">
-                          <Package className="mx-auto h-6 w-6 text-gray-400 mb-1" />
-                          <p className="text-xs text-gray-500 dark:text-slate-400">
+                          <Package className="mx-auto h-6 w-6 text-muted mb-1" />
+                          <p className="text-xs text-muted">
                             {productSearchQuery ? 'No products match your search' : 'No products available'}
                           </p>
                         </div>
@@ -735,19 +735,19 @@ export default function CollectionsPage() {
                                 onClick={() => !creating && toggleProductSelection(product.id)}
                                 className={`relative p-1.5 rounded cursor-pointer transition-all ${
                                   isSelected
-                                    ? 'bg-emerald-50 dark:bg-emerald-900/30 ring-2 ring-emerald-500'
-                                    : 'hover:bg-gray-100 dark:hover:bg-slate-700'
+                                    ? 'bg-primary/20 ring-2 ring-primary'
+                                    : 'hover:bg-secondary'
                                 }`}
                               >
                                 {/* Selection Indicator */}
                                 {isSelected && (
-                                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center z-10">
-                                    <Check className="h-2.5 w-2.5 text-white" />
+                                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center z-10">
+                                    <Check className="h-2.5 w-2.5 text-primary-foreground" />
                                   </div>
                                 )}
                                 
                                 {/* Product Image */}
-                                <div className="w-full aspect-square rounded overflow-hidden bg-gray-100 dark:bg-slate-700 mb-1">
+                                <div className="w-full aspect-square rounded overflow-hidden bg-white border border-border mb-1">
                                   {product.images && product.images.length > 0 ? (
                                     <img
                                       src={product.images[0]}
@@ -756,13 +756,13 @@ export default function CollectionsPage() {
                                     />
                                   ) : (
                                     <div className="w-full h-full flex items-center justify-center">
-                                      <ImageIcon className="h-4 w-4 text-gray-400" />
+                                      <ImageIcon className="h-4 w-4 text-muted" />
                                     </div>
                                   )}
                                 </div>
                                 
                                 {/* Product Info */}
-                                <p className="text-[10px] font-medium text-gray-900 dark:text-slate-100 truncate leading-tight">
+                                <p className="text-[10px] font-medium text-foreground truncate leading-tight">
                                   {product.title}
                                 </p>
                               </div>
@@ -777,14 +777,14 @@ export default function CollectionsPage() {
                 {/* Selected Products Display */}
                 {newCollection.productIds.length > 0 && (
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Selected ({newCollection.productIds.length}):</p>
+                    <p className="text-xs text-muted mb-1">Selected ({newCollection.productIds.length}):</p>
                     <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
                       {newCollection.productIds.map((productId) => {
                         const product = allProducts.find(p => p.id === productId);
                         return (
                           <div
                             key={productId}
-                            className="relative group flex items-center gap-1.5 pl-1 pr-5 py-1 bg-gray-100 dark:bg-slate-800 rounded-full border border-gray-200 dark:border-slate-700"
+                            className="relative group flex items-center gap-1.5 pl-1 pr-5 py-1 bg-secondary rounded-full border border-border"
                           >
                             {product?.images?.[0] ? (
                               <img
@@ -793,19 +793,19 @@ export default function CollectionsPage() {
                                 className="w-5 h-5 rounded-full object-cover"
                               />
                             ) : (
-                              <div className="w-5 h-5 rounded-full bg-gray-200 dark:bg-slate-700 flex items-center justify-center">
-                                <ImageIcon className="h-3 w-3 text-gray-400" />
+                              <div className="w-5 h-5 rounded-full bg-white border border-border flex items-center justify-center">
+                                <ImageIcon className="h-3 w-3 text-muted" />
                               </div>
                             )}
-                            <span className="text-[10px] text-gray-700 dark:text-slate-300 truncate max-w-[80px]">
+                            <span className="text-[10px] text-foreground truncate max-w-[80px]">
                               {product?.title || extractProductId(productId)}
                             </span>
                             <button
                               onClick={() => handleRemoveProductId(productId)}
                               disabled={creating}
-                              className="absolute right-1 w-4 h-4 bg-gray-300 dark:bg-slate-600 hover:bg-red-500 rounded-full flex items-center justify-center transition-colors"
+                              className="absolute right-1 w-4 h-4 bg-muted hover:bg-destructive rounded-full flex items-center justify-center transition-colors"
                             >
-                              <X className="h-2.5 w-2.5 text-gray-600 dark:text-slate-300 hover:text-white" />
+                              <X className="h-2.5 w-2.5 text-white" />
                             </button>
                           </div>
                         );
@@ -815,16 +815,16 @@ export default function CollectionsPage() {
                 )}
                 
                 {newCollection.productIds.length === 0 && !showProductPicker && (
-                  <div className="text-center py-6 bg-gray-50 dark:bg-slate-800 rounded-lg border border-dashed border-gray-300 dark:border-slate-600">
-                    <Package className="mx-auto h-8 w-8 text-gray-400 dark:text-slate-500 mb-2" />
-                    <p className="text-sm text-gray-500 dark:text-slate-400">
+                  <div className="text-center py-6 bg-secondary rounded-lg border border-dashed border-border">
+                    <Package className="mx-auto h-8 w-8 text-muted mb-2" />
+                    <p className="text-sm text-muted">
                       No products added yet. Click &quot;Browse Products&quot; to search and select.
                     </p>
                   </div>
                 )}
               </div>
 
-              <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-slate-700">
+              <div className="flex gap-3 pt-4 border-t border-border">
                 <Button
                   onClick={handleCreateCollection}
                   disabled={creating || !newCollection.name.trim() || !newCollection.handle.trim()}
@@ -832,7 +832,7 @@ export default function CollectionsPage() {
                 >
                   {creating ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2"></div>
                       Creating...
                     </>
                   ) : (
@@ -855,12 +855,12 @@ export default function CollectionsPage() {
       {showEditModal && editingCollection && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <Card className="w-[80%] max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="h-2 bg-gradient-to-r from-amber-500 via-orange-500 to-red-500" />
+            <div className="h-2 bg-brand-gradient" />
             <CardHeader>
               <div className="flex justify-between items-start">
                 <div>
                   <CardTitle className="text-xl">Edit Collection</CardTitle>
-                  <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
+                  <p className="text-sm text-muted mt-1">
                     Update collection details
                   </p>
                 </div>
@@ -873,8 +873,8 @@ export default function CollectionsPage() {
               {/* Name and Handle in two columns */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-700 dark:text-slate-300 block mb-2">
-                    Collection Name <span className="text-red-500">*</span>
+                  <label className="text-sm font-medium text-foreground block mb-2">
+                    Collection Name <span className="text-destructive">*</span>
                   </label>
                   <Input
                     placeholder="e.g., Summer Collection 2024"
@@ -885,11 +885,11 @@ export default function CollectionsPage() {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-gray-700 dark:text-slate-300 block mb-2">
-                    Handle <span className="text-red-500">*</span>
+                  <label className="text-sm font-medium text-foreground block mb-2">
+                    Handle <span className="text-destructive">*</span>
                   </label>
                   <div className="flex items-center">
-                    <span className="text-gray-500 dark:text-slate-400 mr-1">/</span>
+                    <span className="text-muted mr-1">/</span>
                     <Input
                       placeholder="summer-collection-2024"
                       value={editForm.handle}
@@ -898,14 +898,14 @@ export default function CollectionsPage() {
                       className="font-mono"
                     />
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
+                  <p className="text-xs text-muted mt-1">
                     Auto-generated from name
                   </p>
                 </div>
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-slate-300 block mb-2">
+                <label className="text-sm font-medium text-foreground block mb-2">
                   Description
                 </label>
                 <textarea
@@ -913,14 +913,14 @@ export default function CollectionsPage() {
                   value={editForm.description}
                   onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                   disabled={editing}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="w-full px-3 py-2 border border-border rounded-md bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-accent resize-none"
                   rows={2}
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
+                  <label className="text-sm font-medium text-foreground">
                     Products ({editForm.productIds.length} selected)
                   </label>
                   <Button
@@ -936,10 +936,10 @@ export default function CollectionsPage() {
 
                 {/* Product Picker */}
                 {showEditProductPicker && (
-                  <div className="mb-4 border border-gray-200 dark:border-slate-700 rounded-lg overflow-hidden">
-                    <div className="p-3 bg-gray-50 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
+                  <div className="mb-4 border border-border rounded-lg overflow-hidden">
+                    <div className="p-3 bg-secondary border-b border-border">
                       <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
                         <Input
                           placeholder="Search products by name, handle, or ID..."
                           value={editProductSearchQuery}
@@ -952,12 +952,12 @@ export default function CollectionsPage() {
                     <div className="max-h-64 overflow-y-auto p-2">
                       {productsLoading ? (
                         <div className="flex justify-center items-center py-6">
-                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-accent"></div>
                         </div>
                       ) : filteredEditProducts.length === 0 ? (
                         <div className="text-center py-6">
-                          <Package className="mx-auto h-6 w-6 text-gray-400 mb-1" />
-                          <p className="text-xs text-gray-500 dark:text-slate-400">
+                          <Package className="mx-auto h-6 w-6 text-muted mb-1" />
+                          <p className="text-xs text-muted">
                             {editProductSearchQuery ? 'No products match your search' : 'No products available'}
                           </p>
                         </div>
@@ -971,19 +971,19 @@ export default function CollectionsPage() {
                                 onClick={() => !editing && toggleEditProductSelection(product.id)}
                                 className={`relative p-1.5 rounded cursor-pointer transition-all ${
                                   isSelected
-                                    ? 'bg-amber-50 dark:bg-amber-900/30 ring-2 ring-amber-500'
-                                    : 'hover:bg-gray-100 dark:hover:bg-slate-700'
+                                    ? 'bg-primary/20 ring-2 ring-primary'
+                                    : 'hover:bg-secondary'
                                 }`}
                               >
                                 {/* Selection Indicator */}
                                 {isSelected && (
-                                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center z-10">
-                                    <Check className="h-2.5 w-2.5 text-white" />
+                                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center z-10">
+                                    <Check className="h-2.5 w-2.5 text-primary-foreground" />
                                   </div>
                                 )}
                                 
                                 {/* Product Image */}
-                                <div className="w-full aspect-square rounded overflow-hidden bg-gray-100 dark:bg-slate-700 mb-1">
+                                <div className="w-full aspect-square rounded overflow-hidden bg-white border border-border mb-1">
                                   {product.images && product.images.length > 0 ? (
                                     <img
                                       src={product.images[0]}
@@ -992,13 +992,13 @@ export default function CollectionsPage() {
                                     />
                                   ) : (
                                     <div className="w-full h-full flex items-center justify-center">
-                                      <ImageIcon className="h-4 w-4 text-gray-400" />
+                                      <ImageIcon className="h-4 w-4 text-muted" />
                                     </div>
                                   )}
                                 </div>
                                 
                                 {/* Product Info */}
-                                <p className="text-[10px] font-medium text-gray-900 dark:text-slate-100 truncate leading-tight">
+                                <p className="text-[10px] font-medium text-foreground truncate leading-tight">
                                   {product.title}
                                 </p>
                               </div>
@@ -1013,14 +1013,14 @@ export default function CollectionsPage() {
                 {/* Selected Products Display */}
                 {editForm.productIds.length > 0 && (
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Selected ({editForm.productIds.length}):</p>
+                    <p className="text-xs text-muted mb-1">Selected ({editForm.productIds.length}):</p>
                     <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
                       {editForm.productIds.map((productId) => {
                         const product = allProducts.find(p => p.id === productId);
                         return (
                           <div
                             key={productId}
-                            className="relative group flex items-center gap-1.5 pl-1 pr-5 py-1 bg-gray-100 dark:bg-slate-800 rounded-full border border-gray-200 dark:border-slate-700"
+                            className="relative group flex items-center gap-1.5 pl-1 pr-5 py-1 bg-secondary rounded-full border border-border"
                           >
                             {product?.images?.[0] ? (
                               <img
@@ -1029,19 +1029,19 @@ export default function CollectionsPage() {
                                 className="w-5 h-5 rounded-full object-cover"
                               />
                             ) : (
-                              <div className="w-5 h-5 rounded-full bg-gray-200 dark:bg-slate-700 flex items-center justify-center">
-                                <ImageIcon className="h-3 w-3 text-gray-400" />
+                              <div className="w-5 h-5 rounded-full bg-white border border-border flex items-center justify-center">
+                                <ImageIcon className="h-3 w-3 text-muted" />
                               </div>
                             )}
-                            <span className="text-[10px] text-gray-700 dark:text-slate-300 truncate max-w-[80px]">
+                            <span className="text-[10px] text-foreground truncate max-w-[80px]">
                               {product?.title || extractProductId(productId)}
                             </span>
                             <button
                               onClick={() => handleEditRemoveProductId(productId)}
                               disabled={editing}
-                              className="absolute right-1 w-4 h-4 bg-gray-300 dark:bg-slate-600 hover:bg-red-500 rounded-full flex items-center justify-center transition-colors"
+                              className="absolute right-1 w-4 h-4 bg-muted hover:bg-destructive rounded-full flex items-center justify-center transition-colors"
                             >
-                              <X className="h-2.5 w-2.5 text-gray-600 dark:text-slate-300 hover:text-white" />
+                              <X className="h-2.5 w-2.5 text-white" />
                             </button>
                           </div>
                         );
@@ -1051,16 +1051,16 @@ export default function CollectionsPage() {
                 )}
                 
                 {editForm.productIds.length === 0 && !showEditProductPicker && (
-                  <div className="text-center py-6 bg-gray-50 dark:bg-slate-800 rounded-lg border border-dashed border-gray-300 dark:border-slate-600">
-                    <Package className="mx-auto h-8 w-8 text-gray-400 dark:text-slate-500 mb-2" />
-                    <p className="text-sm text-gray-500 dark:text-slate-400">
+                  <div className="text-center py-6 bg-secondary rounded-lg border border-dashed border-border">
+                    <Package className="mx-auto h-8 w-8 text-muted mb-2" />
+                    <p className="text-sm text-muted">
                       No products in collection. Click &quot;Browse Products&quot; to add some.
                     </p>
                   </div>
                 )}
               </div>
 
-              <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-slate-700">
+              <div className="flex gap-3 pt-4 border-t border-border">
                 <Button
                   onClick={handleUpdateCollection}
                   disabled={editing || !editForm.name.trim() || !editForm.handle.trim()}
@@ -1068,7 +1068,7 @@ export default function CollectionsPage() {
                 >
                   {editing ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2"></div>
                       Updating...
                     </>
                   ) : (
@@ -1091,15 +1091,15 @@ export default function CollectionsPage() {
       {showDeleteConfirm && collectionToDelete && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
           <Card className="w-full max-w-md">
-            <div className="h-2 bg-gradient-to-r from-red-500 via-red-600 to-red-700" />
+            <div className="h-2 bg-destructive" />
             <CardHeader>
-              <CardTitle className="text-xl text-red-600 dark:text-red-400">Delete Collection</CardTitle>
+              <CardTitle className="text-xl text-destructive">Delete Collection</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-gray-700 dark:text-slate-300">
-                Are you sure you want to delete <strong className="text-gray-900 dark:text-slate-100">{collectionToDelete.name}</strong>?
+              <p className="text-foreground">
+                Are you sure you want to delete <strong>{collectionToDelete.name}</strong>?
               </p>
-              <p className="text-sm text-gray-500 dark:text-slate-400">
+              <p className="text-sm text-muted">
                 This action cannot be undone. The collection and all its associations will be permanently removed.
               </p>
               
@@ -1107,7 +1107,8 @@ export default function CollectionsPage() {
                 <Button
                   onClick={handleConfirmDelete}
                   disabled={deleting}
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                  variant="danger"
+                  className="flex-1"
                 >
                   {deleting ? (
                     <>
@@ -1132,4 +1133,3 @@ export default function CollectionsPage() {
     </DashboardLayout>
   );
 }
-

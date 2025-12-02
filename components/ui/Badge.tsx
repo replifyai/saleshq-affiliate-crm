@@ -9,11 +9,11 @@ interface BadgeProps {
 
 export function Badge({ variant = 'default', children, className }: BadgeProps) {
   const variants = {
-    success: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-    warning: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-    error: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
-    info: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-    default: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
+    success: 'bg-success/10 text-success border border-success/20',
+    warning: 'bg-warning/20 text-warning-foreground border border-warning/40',
+    error: 'bg-destructive/10 text-destructive border border-destructive/20',
+    info: 'bg-accent/20 text-accent-foreground border border-accent/40',
+    default: 'bg-secondary text-secondary-foreground border border-border',
   };
 
   return (
@@ -28,4 +28,3 @@ export function Badge({ variant = 'default', children, className }: BadgeProps) 
     </span>
   );
 }
-

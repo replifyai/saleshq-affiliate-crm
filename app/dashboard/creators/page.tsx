@@ -211,10 +211,10 @@ export default function CreatorsPage() {
   };
 
   const getSortIcon = (field: typeof sortBy) => {
-    if (sortBy !== field) return <ArrowUpDown className="h-4 w-4 text-gray-400 dark:text-slate-500 inline ml-1" />;
+    if (sortBy !== field) return <ArrowUpDown className="h-4 w-4 text-muted inline ml-1" />;
     return (
       <ArrowUpDown 
-        className={`h-4 w-4 inline ml-1 ${sortDirection === 'desc' ? 'rotate-180' : ''}`}
+        className={`h-4 w-4 inline ml-1 text-accent ${sortDirection === 'desc' ? 'rotate-180' : ''}`}
       />
     );
   };
@@ -223,34 +223,34 @@ export default function CreatorsPage() {
     <DashboardLayout>
       <div className="p-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-slate-100">Creators</h1>
-          <p className="text-gray-600 dark:text-slate-400 mt-2">Manage creator profiles and approvals</p>
+          <h1 className="text-3xl font-bold text-foreground">Creators</h1>
+          <p className="text-muted mt-2">Manage creator profiles and approvals</p>
         </div>
 
         {/* Filters */}
         <Card className="mb-6">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
-              <Filter className="h-5 w-5 text-gray-600 dark:text-slate-400" />
+              <Filter className="h-5 w-5 text-muted" />
               <CardTitle className="text-lg">Filters & Sorting</CardTitle>
             </div>
           </CardHeader>
           <CardContent>
             {/* Search Input */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 Search Creators
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-5 w-5 text-gray-400 dark:text-slate-500" />
+                  <Search className="h-5 w-5 text-muted" />
                 </div>
                 <input
                   type="text"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   placeholder="Search by name, email, or phone..."
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md leading-5 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder-gray-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-blue-500 sm:text-sm"
+                  className="block w-full pl-10 pr-3 py-2 border border-border rounded-md leading-5 bg-white text-foreground placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-border-brand sm:text-sm"
                 />
               </div>
             </div>
@@ -323,52 +323,52 @@ export default function CreatorsPage() {
           <CardContent>
             {loading ? (
               <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-500"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent"></div>
               </div>
             ) : creators.length === 0 ? (
-              <div className="text-center py-12 text-gray-500 dark:text-slate-400">
+              <div className="text-center py-12 text-muted">
                 No creators found
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200 dark:border-slate-800">
+                    <tr className="border-b border-border">
                       <th 
-                        className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800"
+                        className="text-left py-3 px-4 text-sm font-semibold text-foreground cursor-pointer hover:bg-secondary"
                         onClick={() => handleSortChange('name')}
                       >
                         Name {getSortIcon('name')}
                       </th>
                       <th 
-                        className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800"
+                        className="text-left py-3 px-4 text-sm font-semibold text-foreground cursor-pointer hover:bg-secondary"
                         onClick={() => handleSortChange('email')}
                       >
                         Email {getSortIcon('email')}
                       </th>
                       <th 
-                        className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800"
+                        className="text-left py-3 px-4 text-sm font-semibold text-foreground cursor-pointer hover:bg-secondary"
                         onClick={() => handleSortChange('phoneNumber')}
                       >
                         Phone {getSortIcon('phoneNumber')}
                       </th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Phone Verified</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Status</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Phone Verified</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Status</th>
                       <th 
-                        className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800"
+                        className="text-left py-3 px-4 text-sm font-semibold text-foreground cursor-pointer hover:bg-secondary"
                         onClick={() => handleSortChange('createdAt')}
                       >
                         Created {getSortIcon('createdAt')}
                       </th>
-                      <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700 dark:text-slate-300">Actions</th>
+                      <th className="text-right py-3 px-4 text-sm font-semibold text-foreground">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {creators.map((creator) => (
-                      <tr key={creator.id} className="border-b border-gray-100 hover:bg-gray-50 dark:border-slate-800 dark:hover:bg-slate-800/50 group">
-                        <td className="py-3 px-4 font-medium dark:text-slate-200 group-hover:text-black dark:group-hover:text-black">{creator.name}</td>
-                        <td className="py-3 px-4 font-medium dark:text-slate-200 group-hover:text-black dark:group-hover:text-black">{creator.email}</td>
-                        <td className="py-3 px-4 font-medium dark:text-slate-200 group-hover:text-black dark:group-hover:text-black">{creator.phoneNumber}</td>
+                      <tr key={creator.id} className="border-b border-border hover:bg-secondary group">
+                        <td className="py-3 px-4 font-medium text-foreground">{creator.name}</td>
+                        <td className="py-3 px-4 text-foreground">{creator.email}</td>
+                        <td className="py-3 px-4 text-foreground">{creator.phoneNumber}</td>
                         <td className="py-3 px-4">
                           {creator.phoneNumberVerified ? (
                             <Badge variant="success">
@@ -383,7 +383,7 @@ export default function CreatorsPage() {
                           )}
                         </td>
                         <td className="py-3 px-4">{getStatusBadge(creator.approved)}</td>
-                        <td className="py-3 px-4 font-medium dark:text-slate-200 group-hover:text-black dark:group-hover:text-black">{formatDate(creator.createdAt)}</td>
+                        <td className="py-3 px-4 text-foreground">{formatDate(creator.createdAt)}</td>
                         <td className="py-3 px-4">
                           <div className="flex justify-end gap-2">
                             <Button
@@ -424,8 +424,8 @@ export default function CreatorsPage() {
 
             {/* Pagination */}
             {pagination && pagination.totalPages > 1 && (
-              <div className="flex justify-between items-center mt-6 pt-6 border-t border-gray-200">
-                <div className="text-sm text-gray-600">
+              <div className="flex justify-between items-center mt-6 pt-6 border-t border-border">
+                <div className="text-sm text-muted">
                   Page {pagination.page} of {pagination.totalPages} ({pagination.total} total creators)
                 </div>
                 <div className="flex gap-2">
@@ -437,7 +437,7 @@ export default function CreatorsPage() {
                   >
                     Previous
                   </Button>
-                  <span className="flex items-center px-3 text-sm text-gray-600">
+                  <span className="flex items-center px-3 text-sm text-muted">
                     Page {page}
                   </span>
                   <Button
@@ -468,17 +468,17 @@ export default function CreatorsPage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Email</label>
-                  <p className="text-gray-900">{selectedCreator.email}</p>
+                  <label className="text-sm font-medium text-muted">Email</label>
+                  <p className="text-foreground">{selectedCreator.email}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Phone Number</label>
-                  <p className="text-gray-900">{selectedCreator.phoneNumber}</p>
+                  <label className="text-sm font-medium text-muted">Phone Number</label>
+                  <p className="text-foreground">{selectedCreator.phoneNumber}</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Status</label>
+                  <label className="text-sm font-medium text-muted">Status</label>
                   <div className="mt-1 flex items-center gap-2">
                     {getStatusBadge(selectedCreator.approved)}
                     {(selectedCreator.approved === 'pending' || selectedCreator.approved === 'rejected') && (
@@ -510,7 +510,7 @@ export default function CreatorsPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Phone Verified</label>
+                  <label className="text-sm font-medium text-muted">Phone Verified</label>
                   <div className="mt-1">
                     {selectedCreator.phoneNumberVerified ? (
                       <Badge variant="success">
@@ -528,36 +528,36 @@ export default function CreatorsPage() {
               </div>
               {selectedCreator.bio && (
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Bio</label>
-                  <p className="text-gray-900">{selectedCreator.bio}</p>
+                  <label className="text-sm font-medium text-muted">Bio</label>
+                  <p className="text-foreground">{selectedCreator.bio}</p>
                 </div>
               )}
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">Social Media Handles</label>
+                <label className="text-sm font-medium text-muted mb-2 block">Social Media Handles</label>
                 {selectedCreator.socialMediaHandles.length > 0 ? (
                   <div className="space-y-2">
                     {selectedCreator.socialMediaHandles.map((social, index) => (
                       <div key={index} className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-600 capitalize w-24">
+                        <span className="text-sm font-medium text-muted capitalize w-24">
                           {social.platform}:
                         </span>
-                        <span className="text-gray-900">{social.handle}</span>
+                        <span className="text-foreground">{social.handle}</span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-gray-500 text-sm">No social media handles</p>
+                  <p className="text-muted text-sm">No social media handles</p>
                 )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Created</label>
-                  <p className="text-gray-900">{formatDate(selectedCreator.createdAt)}</p>
+                  <label className="text-sm font-medium text-muted">Created</label>
+                  <p className="text-foreground">{formatDate(selectedCreator.createdAt)}</p>
                 </div>
                 {selectedCreator.approvedAt && (
                   <div>
-                    <label className="text-sm font-medium text-gray-700">Approved</label>
-                    <p className="text-gray-900">{formatDate(selectedCreator.approvedAt)}</p>
+                    <label className="text-sm font-medium text-muted">Approved</label>
+                    <p className="text-foreground">{formatDate(selectedCreator.approvedAt)}</p>
                   </div>
                 )}
               </div>
@@ -577,18 +577,18 @@ export default function CreatorsPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 px-4 py-3 rounded-md text-sm">
+              <div className="bg-accent/10 border border-accent/30 text-foreground px-4 py-3 rounded-md text-sm">
                 Please set the commission details for this creator. This will determine how much the creator earns when their coupons are used.
               </div>
               
               <div className="w-full">
-                <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Commission Type
                 </label>
-                <div className="flex h-10 w-full rounded-md border border-gray-300 dark:border-slate-700 bg-gray-100 dark:bg-slate-800 px-3 py-2 text-sm text-gray-600 dark:text-slate-400">
+                <div className="flex h-10 w-full rounded-md border border-border bg-secondary px-3 py-2 text-sm text-muted">
                   Percentage (%) - Fixed
                 </div>
-                <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+                <p className="mt-1 text-xs text-muted">
                   Commission type is set to percentage for all creator approvals
                 </p>
               </div>
@@ -617,9 +617,9 @@ export default function CreatorsPage() {
                 disabled={approvingCreator}
               />
 
-              <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 px-4 py-3 rounded-md text-sm">
-                <p className="font-medium text-gray-700 dark:text-gray-300 mb-2">Commission Preview:</p>
-                <p className="text-gray-600 dark:text-gray-400">
+              <div className="bg-secondary border border-border px-4 py-3 rounded-md text-sm">
+                <p className="font-medium text-foreground mb-2">Commission Preview:</p>
+                <p className="text-muted">
                   {commissionData.commissionValue ? (
                     `${commissionData.commissionValue}% of ${commissionData.commissionBasis.replace(/_/g, ' ')}`
                   ) : (
@@ -636,7 +636,7 @@ export default function CreatorsPage() {
                 >
                   {approvingCreator ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2"></div>
                       Approving...
                     </>
                   ) : (
@@ -658,4 +658,3 @@ export default function CreatorsPage() {
     </DashboardLayout>
   );
 }
-

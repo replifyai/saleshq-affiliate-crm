@@ -1,19 +1,30 @@
 @import "tailwindcss";
 
 :root {
-  /* Base palette with strong contrast */
-  --background: #ffffff;
-  --foreground: #0f172a; /* slate-900 */
-  --muted: #475569;      /* slate-600 */
-  --muted-foreground: #334155; /* slate-700 */
-  --border: #e2e8f0;     /* slate-200 */
-  --card: #ffffff;
-  --card-foreground: #0f172a;
-  --primary: #2563eb;    /* blue-600 */
-  --primary-foreground: #ffffff;
-  --destructive: #dc2626; /* red-600 */
-  --destructive-foreground: #ffffff;
-  --ring: #2563eb;
+  /* Light theme - Golden Yellow palette */
+  --background: #FFFFFF;
+  --foreground: #231F20;
+  --muted: rgba(35, 31, 32, 0.50);
+  --muted-foreground: rgba(35, 31, 32, 0.70);
+  --border: rgba(255, 209, 0, 0.5);
+  --border-brand: rgba(255, 209, 0, 1);
+  --card: #FFFFFF;
+  --card-foreground: #231F20;
+  --primary: #ffda34;
+  --primary-foreground: #231F20;
+  --secondary: #FFFAE6;
+  --secondary-foreground: #231F20;
+  --accent: #FFD100;
+  --accent-foreground: #231F20;
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+  --success: #10B981;
+  --success-foreground: #FFFFFF;
+  --warning: #ffda34;
+  --warning-foreground: #231F20;
+  --ring: #FFD100;
+  --gradient-start: #FFD100;
+  --gradient-end: #FFFAE6;
 }
 
 @theme inline {
@@ -22,36 +33,37 @@
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
+  --color-border-brand: var(--border-brand);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-ring: var(--ring);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0b1220;          /* deep slate */
-    --foreground: #e5e7eb;          /* gray-200 */
-    --muted: #94a3b8;               /* slate-400 */
-    --muted-foreground: #cbd5e1;    /* slate-300 */
-    --border: #1f2937;              /* gray-800 */
-    --card: #0f172a;                /* slate-900 */
-    --card-foreground: #e5e7eb;
-    --primary: #3b82f6;             /* blue-500 for better dark contrast */
-    --primary-foreground: #0b1220;
-    --destructive: #ef4444;         /* red-500 */
-    --destructive-foreground: #0b1220;
-    --ring: #60a5fa;                /* blue-400 */
-  }
+/* Brand Gradient */
+.bg-brand-gradient {
+  background: linear-gradient(93.59deg, #FFD100 6.88%, #FFFAE6 142.58%);
+}
+
+.border-brand {
+  border: 1px solid var(--border-brand);
 }
 
 /* Base element resets and modern typography */
-html { color-scheme: light dark; }
+html { color-scheme: light; }
 
 body {
   background: var(--background);
