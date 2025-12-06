@@ -1,15 +1,27 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Badge } from '@/components/ui/Badge';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { FilterDrawer, FilterOption, FilterValues } from '@/components/ui/FilterDrawer';
 import { apiClient } from '@/lib/api-client';
 import { ProductCollection, ShopifyProduct } from '@/types';
 import { formatDate } from '@/lib/utils';
-import { Search, RefreshCw, Package, Eye, ExternalLink, Layers, Plus, X, Trash2, Check, ImageIcon, Edit3 } from 'lucide-react';
+import { 
+  Search, 
+  Plus, 
+  X, 
+  Package, 
+  Eye, 
+  Edit3, 
+  Trash2, 
+  Check, 
+  ImageIcon, 
+  ExternalLink,
+  ChevronLeft,
+  ChevronRight,
+  SlidersHorizontal,
+  ArrowUpDown
+} from 'lucide-react';
 
 interface NewCollectionForm {
   name: string;
@@ -29,6 +41,11 @@ export default function CollectionsPage() {
   const [collections, setCollections] = useState<ProductCollection[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [mounted, setMounted] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(10);
+  
+  // Modal states
   const [showModal, setShowModal] = useState(false);
   const [selectedCollection, setSelectedCollection] = useState<ProductCollection | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -58,7 +75,56 @@ export default function CollectionsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [collectionToDelete, setCollectionToDelete] = useState<ProductCollection | null>(null);
 
+  // Filter drawer state
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false);
+  const [filterValues, setFilterValues] = useState<FilterValues>({
+    dateRange: { from: '', to: '' },
+    productCount: { min: 0, max: 100 },
+    hasProducts: '',
+  });
+
+  // Filter options for collections
+  const collectionFilters: FilterOption[] = [
+    {
+      id: 'dateRange',
+      label: 'Created Date',
+      type: 'daterange',
+    },
+    {
+      id: 'productCount',
+      label: 'Number of Products',
+      type: 'range',
+      min: 0,
+      max: 100,
+    },
+    {
+      id: 'hasProducts',
+      label: 'Has Products',
+      type: 'select',
+      placeholder: 'All',
+      options: [
+        { value: 'yes', label: 'With Products' },
+        { value: 'no', label: 'Empty Collections' },
+      ],
+    },
+  ];
+
+  const handleApplyFilters = (values: FilterValues) => {
+    setFilterValues(values);
+    setPage(1);
+    console.log('Applied filters:', values);
+  };
+
+  const handleResetFilters = () => {
+    setFilterValues({
+      dateRange: { from: '', to: '' },
+      productCount: { min: 0, max: 100 },
+      hasProducts: '',
+    });
+  };
+
   useEffect(() => {
+    setMounted(true);
     fetchCollections();
   }, []);
 
@@ -77,25 +143,19 @@ export default function CollectionsPage() {
   };
 
   const fetchProducts = async () => {
-    if (allProducts.length > 0) return; // Already loaded
+    if (allProducts.length > 0) return;
     try {
       setProductsLoading(true);
       const response = await apiClient.get<{ success: boolean; data: ShopifyProduct[] }>('/products');
       if (response.success && response.data) {
-        // Ensure we always set an array
         setAllProducts(Array.isArray(response.data) ? response.data : []);
       }
     } catch (error) {
       console.error('Failed to fetch products:', error);
-      setAllProducts([]); // Ensure we have an array on error
+      setAllProducts([]);
     } finally {
       setProductsLoading(false);
     }
-  };
-
-  const handleOpenCreateModal = () => {
-    setShowCreateModal(true);
-    fetchProducts(); // Load products when modal opens
   };
 
   const fetchProductsByIds = async (ids: string[]) => {
@@ -117,10 +177,9 @@ export default function CollectionsPage() {
     }
   };
 
-  const handleViewDetails = (collection: ProductCollection) => {
-    setSelectedCollection(collection);
-    setShowModal(true);
-    fetchProductsByIds(collection.productIds);
+  const getCurrentTime = () => {
+    const now = new Date();
+    return now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
   };
 
   const generateHandle = (name: string) => {
@@ -130,6 +189,59 @@ export default function CollectionsPage() {
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-')
       .trim();
+  };
+
+  const extractProductId = (gid: string) => {
+    const parts = gid.split('/');
+    return parts[parts.length - 1];
+  };
+
+  // Filter collections
+  const filteredCollections = collections.filter((collection) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      collection.name.toLowerCase().includes(query) ||
+      collection.handle.toLowerCase().includes(query) ||
+      collection.description?.toLowerCase().includes(query)
+    );
+  });
+
+  // Paginated collections
+  const totalPages = Math.ceil(filteredCollections.length / pageSize);
+  const paginatedCollections = filteredCollections.slice((page - 1) * pageSize, page * pageSize);
+
+  // Filter products for picker
+  const filteredProducts = (Array.isArray(allProducts) ? allProducts : []).filter((product) => {
+    if (!productSearchQuery) return true;
+    const query = productSearchQuery.toLowerCase();
+    return (
+      product.title?.toLowerCase().includes(query) ||
+      product.handle?.toLowerCase().includes(query) ||
+      product.productType?.toLowerCase().includes(query)
+    );
+  });
+
+  const filteredEditProducts = (Array.isArray(allProducts) ? allProducts : []).filter((product) => {
+    if (!editProductSearchQuery) return true;
+    const query = editProductSearchQuery.toLowerCase();
+    return (
+      product.title?.toLowerCase().includes(query) ||
+      product.handle?.toLowerCase().includes(query) ||
+      product.productType?.toLowerCase().includes(query)
+    );
+  });
+
+  // Handlers
+  const handleOpenCreateModal = () => {
+    setShowCreateModal(true);
+    fetchProducts();
+  };
+
+  const handleViewDetails = (collection: ProductCollection) => {
+    setSelectedCollection(collection);
+    setShowModal(true);
+    fetchProductsByIds(collection.productIds);
   };
 
   const handleNameChange = (name: string) => {
@@ -158,23 +270,6 @@ export default function CollectionsPage() {
     }
   };
 
-  const extractProductId = (gid: string) => {
-    // Extract just the ID from "gid://shopify/Product/1234567890"
-    const parts = gid.split('/');
-    return parts[parts.length - 1];
-  };
-
-  const filteredProducts = (Array.isArray(allProducts) ? allProducts : []).filter((product) => {
-    if (!productSearchQuery) return true;
-    const query = productSearchQuery.toLowerCase();
-    return (
-      product.title?.toLowerCase().includes(query) ||
-      product.handle?.toLowerCase().includes(query) ||
-      product.productType?.toLowerCase().includes(query) ||
-      extractProductId(product.id).includes(query)
-    );
-  });
-
   const handleCreateCollection = async () => {
     if (!newCollection.name.trim() || !newCollection.handle.trim()) {
       alert('Name and handle are required');
@@ -186,7 +281,6 @@ export default function CollectionsPage() {
       const response = await apiClient.post<{ success: boolean; error?: string }>('/collections', newCollection);
       
       if (response.success) {
-        alert('Collection created successfully');
         setShowCreateModal(false);
         setNewCollection(initialFormState);
         fetchCollections();
@@ -195,8 +289,7 @@ export default function CollectionsPage() {
       }
     } catch (error: any) {
       console.error('Failed to create collection:', error);
-      const errorMessage = error.response?.data?.error || error.message || 'Failed to create collection';
-      alert(`Error: ${errorMessage}`);
+      alert('Failed to create collection');
     } finally {
       setCreating(false);
     }
@@ -209,7 +302,7 @@ export default function CollectionsPage() {
     setShowProductPicker(false);
   };
 
-  // Edit collection functions
+  // Edit handlers
   const handleOpenEditModal = (collection: ProductCollection) => {
     setEditingCollection(collection);
     setEditForm({
@@ -249,17 +342,6 @@ export default function CollectionsPage() {
     }
   };
 
-  const filteredEditProducts = (Array.isArray(allProducts) ? allProducts : []).filter((product) => {
-    if (!editProductSearchQuery) return true;
-    const query = editProductSearchQuery.toLowerCase();
-    return (
-      product.title?.toLowerCase().includes(query) ||
-      product.handle?.toLowerCase().includes(query) ||
-      product.productType?.toLowerCase().includes(query) ||
-      extractProductId(product.id).includes(query)
-    );
-  });
-
   const handleUpdateCollection = async () => {
     if (!editingCollection || !editForm.name.trim() || !editForm.handle.trim()) {
       alert('Name and handle are required');
@@ -268,26 +350,22 @@ export default function CollectionsPage() {
 
     try {
       setEditing(true);
-      const response = await apiClient.put<{ success: boolean; error?: string; data?: ProductCollection }>(
+      const response = await apiClient.put<{ success: boolean; error?: string }>(
         `/collections/${editingCollection.id}`,
         editForm
       );
       
       if (response.success) {
-        alert('Collection updated successfully');
         setShowEditModal(false);
         setEditingCollection(null);
         setEditForm(initialFormState);
-        setEditProductSearchQuery('');
-        setShowEditProductPicker(false);
         fetchCollections();
       } else {
         alert(response.error || 'Failed to update collection');
       }
     } catch (error: any) {
       console.error('Failed to update collection:', error);
-      const errorMessage = error.response?.data?.error || error.message || 'Failed to update collection';
-      alert(`Error: ${errorMessage}`);
+      alert('Failed to update collection');
     } finally {
       setEditing(false);
     }
@@ -301,7 +379,7 @@ export default function CollectionsPage() {
     setShowEditProductPicker(false);
   };
 
-  // Delete collection functions
+  // Delete handlers
   const handleDeleteClick = (collection: ProductCollection) => {
     setCollectionToDelete(collection);
     setShowDeleteConfirm(true);
@@ -312,12 +390,11 @@ export default function CollectionsPage() {
 
     try {
       setDeleting(true);
-      const response = await apiClient.delete<{ success: boolean; error?: string; message?: string }>(
+      const response = await apiClient.delete<{ success: boolean; error?: string }>(
         `/collections/${collectionToDelete.id}`
       );
       
       if (response.success) {
-        alert('Collection deleted successfully');
         setShowDeleteConfirm(false);
         setCollectionToDelete(null);
         setShowModal(false);
@@ -329,442 +406,402 @@ export default function CollectionsPage() {
       }
     } catch (error: any) {
       console.error('Failed to delete collection:', error);
-      const errorMessage = error.response?.data?.error || error.message || 'Failed to delete collection';
-      alert(`Error: ${errorMessage}`);
+      alert('Failed to delete collection');
     } finally {
       setDeleting(false);
     }
   };
 
-  const handleCancelDelete = () => {
-    setShowDeleteConfirm(false);
-    setCollectionToDelete(null);
-  };
-
-  // Filter collections based on search query
-  const filteredCollections = collections.filter((collection) => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      collection.name.toLowerCase().includes(query) ||
-      collection.handle.toLowerCase().includes(query) ||
-      collection.description?.toLowerCase().includes(query)
-    );
-  });
-
   return (
     <DashboardLayout>
-      <div className="p-8">
-        <div className="mb-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Collections</h1>
-            <p className="text-muted mt-2">View and create product collections for creators</p>
-          </div>
-          <div className="flex gap-3">
-            <Button onClick={fetchCollections} variant="outline">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-            <Button onClick={handleOpenCreateModal}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Collection
-            </Button>
-          </div>
+      <div className="p-6 max-w-[1400px] mx-auto">
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-6">
+          <h1 className="text-2xl font-semibold text-gray-900">Collections</h1>
+          <span className="text-sm text-gray-500">
+            Last refreshed: {mounted ? getCurrentTime() : '11:56 AM'}
+          </span>
         </div>
 
-        {/* Search */}
-        <Card className="mb-6">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
-                <Input
-                  placeholder="Search by name, handle, or description..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <div className="text-sm text-muted">
-                {filteredCollections.length} collection{filteredCollections.length !== 1 ? 's' : ''} found
-              </div>
+        {/* Search and Actions Row */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+                placeholder="Search for a Collection"
+                className="pl-10 pr-4 py-2 w-64 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+              />
             </div>
-          </CardContent>
-        </Card>
+            <button 
+              onClick={() => setShowFilterDrawer(true)}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              Filters
+            </button>
+            <button className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
+              <ArrowUpDown className="h-4 w-4" />
+              Sort By
+            </button>
+          </div>
+          
+          <button
+            onClick={handleOpenCreateModal}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800"
+          >
+            <Plus className="h-4 w-4" />
+            Create Collection
+          </button>
+        </div>
 
-        {/* Collections Grid */}
+        {/* Content */}
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent"></div>
+            <div className="animate-spin rounded-full h-10 w-10 border-2 border-gray-200 border-t-[#EAC312]"></div>
           </div>
-        ) : filteredCollections.length === 0 ? (
-          <Card>
-            <CardContent className="py-16">
-              <div className="text-center">
-                <Layers className="mx-auto h-12 w-12 text-muted mb-4" />
-                <h3 className="text-lg font-medium text-foreground mb-2">No collections found</h3>
-                <p className="text-muted">
-                  {searchQuery ? 'Try adjusting your search query' : 'Collections will appear here once creators create them'}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCollections.map((collection) => (
-              <Card key={collection.id} className="group hover:shadow-lg transition-shadow duration-200 overflow-hidden">
-                <div className="h-2 bg-brand-gradient" />
-                <CardHeader className="pb-3">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-lg truncate group-hover:text-accent transition-colors">
-                        {collection.name}
-                      </CardTitle>
-                      <p className="text-sm text-muted font-mono mt-1 truncate">
-                        /{collection.handle}
-                      </p>
-                    </div>
-                    <Badge variant="default" className="ml-2 flex-shrink-0">
-                      <Package className="h-3 w-3 mr-1" />
-                      {collection.productIds.length}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  {collection.description ? (
-                    <p className="text-sm text-muted line-clamp-2 mb-4">
-                      {collection.description}
-                    </p>
-                  ) : (
-                    <p className="text-sm text-muted italic mb-4">
-                      No description
-                    </p>
-                  )}
-                  
-                  <div className="flex items-center justify-between text-xs text-muted mb-4">
-                    <span>Created {formatDate(collection.createdAt)}</span>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => handleViewDetails(collection)}
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Name</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Handle</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Products</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Created</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedCollections.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-12 text-center text-gray-500">
+                      <Package className="mx-auto h-10 w-10 text-gray-300 mb-3" />
+                      <p>No collections found</p>
+                      <p className="text-sm mt-1">Create your first collection to get started</p>
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedCollections.map((collection) => (
+                    <tr 
+                      key={collection.id} 
+                      className="border-b border-gray-50 hover:bg-gray-50"
                     >
-                      <Eye className="h-4 w-4 mr-1" />
-                      View Details
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                      <td className="py-4 px-6">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{collection.name}</p>
+                          {collection.description && (
+                            <p className="text-xs text-gray-500 truncate max-w-xs">{collection.description}</p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-4 px-6 text-sm text-gray-600 font-mono">
+                        /{collection.handle}
+                      </td>
+                      <td className="py-4 px-6">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                          <Package className="h-3 w-3 mr-1" />
+                          {collection.productIds.length}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 text-sm text-gray-600">
+                        {formatDate(collection.createdAt)}
+                      </td>
+                      <td className="py-4 px-6">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleViewDetails(collection)}
+                            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
+                            title="View Details"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleOpenEditModal(collection)}
+                            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
+                            title="Edit"
+                          >
+                            <Edit3 className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClick(collection)}
+                            className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+            
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-end gap-2 py-4 px-6 border-t border-gray-100">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <span className="text-sm text-gray-600">
+                  Page {page}/{totalPages}
+                </span>
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Details Modal */}
+      {/* View Details Modal */}
       {showModal && selectedCollection && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <Card className="w-[80%] max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="h-2 bg-brand-gradient" />
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <div className="flex-1 min-w-0 pr-4">
-                  <CardTitle className="text-xl">{selectedCollection.name}</CardTitle>
-                  <p className="text-sm text-muted font-mono mt-1">
-                    /{selectedCollection.handle}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => handleOpenEditModal(selectedCollection)}>
-                    <Edit3 className="h-4 w-4 mr-1" />
-                    Edit
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => handleDeleteClick(selectedCollection)}
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    Delete
-                  </Button>
-                  <Button variant="ghost" onClick={() => { setShowModal(false); setCollectionProducts([]); }}>Close</Button>
-                </div>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-xl">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">{selectedCollection.name}</h2>
+                <p className="text-sm text-gray-500 font-mono">/{selectedCollection.handle}</p>
               </div>
-            </CardHeader>
-            <CardContent className="overflow-y-auto space-y-6">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleOpenEditModal(selectedCollection)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50"
+                >
+                  <Edit3 className="h-4 w-4 inline mr-1" />
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleDeleteClick(selectedCollection)}
+                  className="px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4 inline mr-1" />
+                  Delete
+                </button>
+                <button
+                  onClick={() => { setShowModal(false); setCollectionProducts([]); }}
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6 overflow-y-auto space-y-6">
               {selectedCollection.description && (
                 <div>
-                  <label className="text-sm font-medium text-muted">Description</label>
-                  <p className="text-foreground mt-1">{selectedCollection.description}</p>
+                  <label className="text-sm font-medium text-gray-500">Description</label>
+                  <p className="text-gray-900 mt-1">{selectedCollection.description}</p>
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-muted">Created</label>
-                  <p className="text-foreground mt-1">{formatDate(selectedCollection.createdAt)}</p>
+                  <label className="text-sm font-medium text-gray-500">Created</label>
+                  <p className="text-gray-900 mt-1">{formatDate(selectedCollection.createdAt)}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted">Last Updated</label>
-                  <p className="text-foreground mt-1">{formatDate(selectedCollection.updatedAt)}</p>
+                  <label className="text-sm font-medium text-gray-500">Last Updated</label>
+                  <p className="text-gray-900 mt-1">{formatDate(selectedCollection.updatedAt)}</p>
                 </div>
               </div>
 
               <div>
-                <label className="text-sm font-medium text-muted">Created By</label>
-                <p className="text-foreground mt-1 font-mono text-sm">{selectedCollection.createdBy}</p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-muted block mb-3">
+                <label className="text-sm font-medium text-gray-500 block mb-3">
                   Products ({selectedCollection.productIds.length})
                 </label>
                 {selectedCollection.productIds.length === 0 ? (
-                  <p className="text-muted text-sm italic">No products in this collection</p>
+                  <p className="text-gray-500 text-sm">No products in this collection</p>
                 ) : collectionProductsLoading ? (
                   <div className="flex justify-center items-center py-8">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-accent"></div>
+                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-200 border-t-[#EAC312]"></div>
                   </div>
                 ) : (
-                  <div className="max-h-80 overflow-y-auto">
-                    {collectionProducts.length > 0 ? (
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                        {collectionProducts.map((product) => (
-                          <div
-                            key={product.id}
-                            className="relative p-2 bg-secondary rounded-lg border border-border group"
-                          >
-                            {/* External Link */}
-                            <a
-                              href={`https://admin.shopify.com/products/${extractProductId(product.id)}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="absolute top-1 right-1 w-6 h-6 bg-accent hover:bg-primary rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                            >
-                              <ExternalLink className="h-3 w-3 text-accent-foreground" />
-                            </a>
-                            
-                            {/* Product Image */}
-                            <div className="w-full aspect-square rounded-md overflow-hidden bg-white border border-border mb-2">
-                              {product.images && product.images.length > 0 ? (
-                                <img
-                                  src={product.images[0]}
-                                  alt={product.title}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <ImageIcon className="h-6 w-6 text-muted" />
-                                </div>
-                              )}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {collectionProducts.map((product) => (
+                      <div
+                        key={product.id}
+                        className="relative p-3 bg-gray-50 rounded-xl border border-gray-100 group"
+                      >
+                        <a
+                          href={`https://admin.shopify.com/products/${extractProductId(product.id)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="absolute top-2 right-2 w-6 h-6 bg-white hover:bg-gray-100 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                        >
+                          <ExternalLink className="h-3 w-3 text-gray-600" />
+                        </a>
+                        
+                        <div className="w-full aspect-square rounded-lg overflow-hidden bg-white mb-2">
+                          {product.images && product.images.length > 0 ? (
+                            <img
+                              src={product.images[0]}
+                              alt={product.title}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <ImageIcon className="h-8 w-8 text-gray-300" />
                             </div>
-                            
-                            {/* Product Info */}
-                            <p className="text-xs font-medium text-foreground truncate">
-                              {product.title}
-                            </p>
-                            <div className="flex items-center gap-1 mt-1">
-                              <Badge
-                                variant={product.status === 'ACTIVE' ? 'success' : 'warning'}
-                                className="text-xs"
-                              >
-                                {product.status}
-                              </Badge>
-                            </div>
-                            {product.productType && (
-                              <p className="text-xs text-muted mt-1 truncate">
-                                {product.productType}
-                              </p>
-                            )}
-                          </div>
-                        ))}
+                          )}
+                        </div>
+                        
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {product.title}
+                        </p>
+                        <span className={`inline-flex items-center mt-1 px-2 py-0.5 rounded text-xs font-medium ${
+                          product.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
+                        }`}>
+                          {product.status}
+                        </span>
                       </div>
-                    ) : (
-                      // Fallback to showing just IDs if product details couldn't be loaded
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                        {selectedCollection.productIds.map((productId, index) => (
-                          <div
-                            key={productId}
-                            className="relative p-2 bg-secondary rounded-lg border border-border group"
-                          >
-                            <a
-                              href={`https://admin.shopify.com/products/${extractProductId(productId)}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="absolute top-1 right-1 w-5 h-5 bg-accent hover:bg-primary rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <ExternalLink className="h-3 w-3 text-accent-foreground" />
-                            </a>
-                            <div className="w-full aspect-square rounded bg-brand-gradient flex items-center justify-center text-foreground text-lg font-bold mb-1">
-                              {index + 1}
-                            </div>
-                            <p className="text-xs font-mono text-muted truncate text-center">
-                              {extractProductId(productId)}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    ))}
                   </div>
                 )}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Create Collection Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <Card className="w-[80%] max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="h-2 bg-brand-gradient" />
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-xl">Create New Collection</CardTitle>
-                  <p className="text-sm text-muted mt-1">
-                    Add a new product collection
-                  </p>
-                </div>
-                <Button variant="ghost" onClick={handleCloseCreateModal} disabled={creating}>
-                  <X className="h-4 w-4" />
-                </Button>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-xl">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Create New Collection</h2>
+                <p className="text-sm text-gray-500">Add a new product collection</p>
               </div>
-            </CardHeader>
-            <CardContent className="overflow-y-auto space-y-6">
-              {/* Name and Handle in two columns */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <button
+                onClick={handleCloseCreateModal}
+                disabled={creating}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-foreground block mb-2">
-                    Collection Name <span className="text-destructive">*</span>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Collection Name <span className="text-red-500">*</span>
                   </label>
-                  <Input
+                  <input
+                    type="text"
                     placeholder="e.g., Summer Collection 2024"
                     value={newCollection.name}
                     onChange={(e) => handleNameChange(e.target.value)}
                     disabled={creating}
+                    className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
                   />
                 </div>
-
                 <div>
-                  <label className="text-sm font-medium text-foreground block mb-2">
-                    Handle <span className="text-destructive">*</span>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Handle <span className="text-red-500">*</span>
                   </label>
                   <div className="flex items-center">
-                    <span className="text-muted mr-1">/</span>
-                    <Input
+                    <span className="text-gray-500 mr-1">/</span>
+                    <input
+                      type="text"
                       placeholder="summer-collection-2024"
                       value={newCollection.handle}
                       onChange={(e) => setNewCollection({ ...newCollection, handle: e.target.value })}
                       disabled={creating}
-                      className="font-mono"
+                      className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 font-mono"
                     />
                   </div>
-                  <p className="text-xs text-muted mt-1">
-                    Auto-generated from name
-                  </p>
                 </div>
               </div>
 
               <div>
-                <label className="text-sm font-medium text-foreground block mb-2">
-                  Description
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
                 <textarea
                   placeholder="Describe this collection..."
                   value={newCollection.description}
                   onChange={(e) => setNewCollection({ ...newCollection, description: e.target.value })}
                   disabled={creating}
-                  className="w-full px-3 py-2 border border-border rounded-md bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-accent resize-none"
                   rows={2}
+                  className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 resize-none"
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium text-foreground">
+                  <label className="text-sm font-medium text-gray-700">
                     Products ({newCollection.productIds.length} selected)
                   </label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
+                  <button
                     onClick={() => setShowProductPicker(!showProductPicker)}
                     disabled={creating}
+                    className="text-sm text-blue-600 hover:text-blue-700"
                   >
                     {showProductPicker ? 'Hide Picker' : 'Browse Products'}
-                  </Button>
+                  </button>
                 </div>
 
-                {/* Product Picker */}
                 {showProductPicker && (
-                  <div className="mb-4 border border-border rounded-lg overflow-hidden">
-                    <div className="p-3 bg-secondary border-b border-border">
+                  <div className="border border-gray-200 rounded-lg overflow-hidden mb-3">
+                    <div className="p-3 bg-gray-50 border-b border-gray-200">
                       <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
-                        <Input
-                          placeholder="Search products by name, handle, or ID..."
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Search products..."
                           value={productSearchQuery}
                           onChange={(e) => setProductSearchQuery(e.target.value)}
-                          className="pl-10"
-                          disabled={creating}
+                          className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
                         />
                       </div>
                     </div>
-                    <div className="max-h-64 overflow-y-auto p-2">
+                    <div className="max-h-48 overflow-y-auto p-2">
                       {productsLoading ? (
                         <div className="flex justify-center items-center py-6">
-                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-accent"></div>
+                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-200 border-t-[#EAC312]"></div>
                         </div>
                       ) : filteredProducts.length === 0 ? (
-                        <div className="text-center py-6">
-                          <Package className="mx-auto h-6 w-6 text-muted mb-1" />
-                          <p className="text-xs text-muted">
-                            {productSearchQuery ? 'No products match your search' : 'No products available'}
-                          </p>
-                        </div>
+                        <div className="text-center py-6 text-gray-500 text-sm">No products found</div>
                       ) : (
-                        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                          {filteredProducts.map((product) => {
+                        <div className="grid grid-cols-4 gap-2">
+                          {filteredProducts.slice(0, 20).map((product) => {
                             const isSelected = newCollection.productIds.includes(product.id);
                             return (
                               <div
                                 key={product.id}
                                 onClick={() => !creating && toggleProductSelection(product.id)}
-                                className={`relative p-1.5 rounded cursor-pointer transition-all ${
-                                  isSelected
-                                    ? 'bg-primary/20 ring-2 ring-primary'
-                                    : 'hover:bg-secondary'
+                                className={`relative p-2 rounded-lg cursor-pointer transition-all ${
+                                  isSelected ? 'bg-yellow-50 ring-2 ring-yellow-400' : 'hover:bg-gray-50'
                                 }`}
                               >
-                                {/* Selection Indicator */}
                                 {isSelected && (
-                                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center z-10">
-                                    <Check className="h-2.5 w-2.5 text-primary-foreground" />
+                                  <div className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-400 rounded-full flex items-center justify-center z-10">
+                                    <Check className="h-3 w-3 text-gray-900" />
                                   </div>
                                 )}
-                                
-                                {/* Product Image */}
-                                <div className="w-full aspect-square rounded overflow-hidden bg-white border border-border mb-1">
-                                  {product.images && product.images.length > 0 ? (
-                                    <img
-                                      src={product.images[0]}
-                                      alt={product.title}
-                                      className="w-full h-full object-cover"
-                                    />
+                                <div className="w-full aspect-square rounded overflow-hidden bg-white border border-gray-100 mb-1">
+                                  {product.images?.[0] ? (
+                                    <img src={product.images[0]} alt={product.title} className="w-full h-full object-cover" />
                                   ) : (
                                     <div className="w-full h-full flex items-center justify-center">
-                                      <ImageIcon className="h-4 w-4 text-muted" />
+                                      <ImageIcon className="h-4 w-4 text-gray-300" />
                                     </div>
                                   )}
                                 </div>
-                                
-                                {/* Product Info */}
-                                <p className="text-[10px] font-medium text-foreground truncate leading-tight">
-                                  {product.title}
-                                </p>
+                                <p className="text-xs font-medium text-gray-900 truncate">{product.title}</p>
                               </div>
                             );
                           })}
@@ -773,234 +810,165 @@ export default function CollectionsPage() {
                     </div>
                   </div>
                 )}
-                
-                {/* Selected Products Display */}
-                {newCollection.productIds.length > 0 && (
-                  <div>
-                    <p className="text-xs text-muted mb-1">Selected ({newCollection.productIds.length}):</p>
-                    <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
-                      {newCollection.productIds.map((productId) => {
-                        const product = allProducts.find(p => p.id === productId);
-                        return (
-                          <div
-                            key={productId}
-                            className="relative group flex items-center gap-1.5 pl-1 pr-5 py-1 bg-secondary rounded-full border border-border"
-                          >
-                            {product?.images?.[0] ? (
-                              <img
-                                src={product.images[0]}
-                                alt={product.title}
-                                className="w-5 h-5 rounded-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-5 h-5 rounded-full bg-white border border-border flex items-center justify-center">
-                                <ImageIcon className="h-3 w-3 text-muted" />
-                              </div>
-                            )}
-                            <span className="text-[10px] text-foreground truncate max-w-[80px]">
-                              {product?.title || extractProductId(productId)}
-                            </span>
-                            <button
-                              onClick={() => handleRemoveProductId(productId)}
-                              disabled={creating}
-                              className="absolute right-1 w-4 h-4 bg-muted hover:bg-destructive rounded-full flex items-center justify-center transition-colors"
-                            >
-                              <X className="h-2.5 w-2.5 text-white" />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-                
-                {newCollection.productIds.length === 0 && !showProductPicker && (
-                  <div className="text-center py-6 bg-secondary rounded-lg border border-dashed border-border">
-                    <Package className="mx-auto h-8 w-8 text-muted mb-2" />
-                    <p className="text-sm text-muted">
-                      No products added yet. Click &quot;Browse Products&quot; to search and select.
-                    </p>
-                  </div>
-                )}
-              </div>
 
-              <div className="flex gap-3 pt-4 border-t border-border">
-                <Button
-                  onClick={handleCreateCollection}
-                  disabled={creating || !newCollection.name.trim() || !newCollection.handle.trim()}
-                  className="flex-1"
-                >
-                  {creating ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2"></div>
-                      Creating...
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create Collection
-                    </>
-                  )}
-                </Button>
-                <Button variant="outline" onClick={handleCloseCreateModal} disabled={creating}>
-                  Cancel
-                </Button>
+                {newCollection.productIds.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {newCollection.productIds.map((productId) => {
+                      const product = allProducts.find(p => p.id === productId);
+                      return (
+                        <div key={productId} className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-full">
+                          <span className="text-xs text-gray-700 truncate max-w-[100px]">
+                            {product?.title || extractProductId(productId)}
+                          </span>
+                          <button
+                            onClick={() => handleRemoveProductId(productId)}
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+
+            <div className="p-6 border-t border-gray-100">
+              <button
+                onClick={handleCreateCollection}
+                disabled={creating || !newCollection.name.trim() || !newCollection.handle.trim()}
+                className="w-full py-3 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-800 disabled:opacity-50"
+              >
+                {creating ? 'Creating...' : 'Create Collection'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Edit Collection Modal */}
       {showEditModal && editingCollection && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <Card className="w-[80%] max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="h-2 bg-brand-gradient" />
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-xl">Edit Collection</CardTitle>
-                  <p className="text-sm text-muted mt-1">
-                    Update collection details
-                  </p>
-                </div>
-                <Button variant="ghost" onClick={handleCloseEditModal} disabled={editing}>
-                  <X className="h-4 w-4" />
-                </Button>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-xl">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Edit Collection</h2>
+                <p className="text-sm text-gray-500">Update collection details</p>
               </div>
-            </CardHeader>
-            <CardContent className="overflow-y-auto space-y-6">
-              {/* Name and Handle in two columns */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <button
+                onClick={handleCloseEditModal}
+                disabled={editing}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-foreground block mb-2">
-                    Collection Name <span className="text-destructive">*</span>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Collection Name <span className="text-red-500">*</span>
                   </label>
-                  <Input
-                    placeholder="e.g., Summer Collection 2024"
+                  <input
+                    type="text"
                     value={editForm.name}
                     onChange={(e) => handleEditNameChange(e.target.value)}
                     disabled={editing}
+                    className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
                   />
                 </div>
-
                 <div>
-                  <label className="text-sm font-medium text-foreground block mb-2">
-                    Handle <span className="text-destructive">*</span>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Handle <span className="text-red-500">*</span>
                   </label>
                   <div className="flex items-center">
-                    <span className="text-muted mr-1">/</span>
-                    <Input
-                      placeholder="summer-collection-2024"
+                    <span className="text-gray-500 mr-1">/</span>
+                    <input
+                      type="text"
                       value={editForm.handle}
                       onChange={(e) => setEditForm({ ...editForm, handle: e.target.value })}
                       disabled={editing}
-                      className="font-mono"
+                      className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 font-mono"
                     />
                   </div>
-                  <p className="text-xs text-muted mt-1">
-                    Auto-generated from name
-                  </p>
                 </div>
               </div>
 
               <div>
-                <label className="text-sm font-medium text-foreground block mb-2">
-                  Description
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
                 <textarea
-                  placeholder="Describe this collection..."
                   value={editForm.description}
                   onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                   disabled={editing}
-                  className="w-full px-3 py-2 border border-border rounded-md bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-accent resize-none"
                   rows={2}
+                  className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 resize-none"
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium text-foreground">
+                  <label className="text-sm font-medium text-gray-700">
                     Products ({editForm.productIds.length} selected)
                   </label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
+                  <button
                     onClick={() => setShowEditProductPicker(!showEditProductPicker)}
                     disabled={editing}
+                    className="text-sm text-blue-600 hover:text-blue-700"
                   >
                     {showEditProductPicker ? 'Hide Picker' : 'Browse Products'}
-                  </Button>
+                  </button>
                 </div>
 
-                {/* Product Picker */}
                 {showEditProductPicker && (
-                  <div className="mb-4 border border-border rounded-lg overflow-hidden">
-                    <div className="p-3 bg-secondary border-b border-border">
+                  <div className="border border-gray-200 rounded-lg overflow-hidden mb-3">
+                    <div className="p-3 bg-gray-50 border-b border-gray-200">
                       <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
-                        <Input
-                          placeholder="Search products by name, handle, or ID..."
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Search products..."
                           value={editProductSearchQuery}
                           onChange={(e) => setEditProductSearchQuery(e.target.value)}
-                          className="pl-10"
-                          disabled={editing}
+                          className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
                         />
                       </div>
                     </div>
-                    <div className="max-h-64 overflow-y-auto p-2">
+                    <div className="max-h-48 overflow-y-auto p-2">
                       {productsLoading ? (
                         <div className="flex justify-center items-center py-6">
-                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-accent"></div>
+                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-200 border-t-[#EAC312]"></div>
                         </div>
                       ) : filteredEditProducts.length === 0 ? (
-                        <div className="text-center py-6">
-                          <Package className="mx-auto h-6 w-6 text-muted mb-1" />
-                          <p className="text-xs text-muted">
-                            {editProductSearchQuery ? 'No products match your search' : 'No products available'}
-                          </p>
-                        </div>
+                        <div className="text-center py-6 text-gray-500 text-sm">No products found</div>
                       ) : (
-                        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                          {filteredEditProducts.map((product) => {
+                        <div className="grid grid-cols-4 gap-2">
+                          {filteredEditProducts.slice(0, 20).map((product) => {
                             const isSelected = editForm.productIds.includes(product.id);
                             return (
                               <div
                                 key={product.id}
                                 onClick={() => !editing && toggleEditProductSelection(product.id)}
-                                className={`relative p-1.5 rounded cursor-pointer transition-all ${
-                                  isSelected
-                                    ? 'bg-primary/20 ring-2 ring-primary'
-                                    : 'hover:bg-secondary'
+                                className={`relative p-2 rounded-lg cursor-pointer transition-all ${
+                                  isSelected ? 'bg-yellow-50 ring-2 ring-yellow-400' : 'hover:bg-gray-50'
                                 }`}
                               >
-                                {/* Selection Indicator */}
                                 {isSelected && (
-                                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center z-10">
-                                    <Check className="h-2.5 w-2.5 text-primary-foreground" />
+                                  <div className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-400 rounded-full flex items-center justify-center z-10">
+                                    <Check className="h-3 w-3 text-gray-900" />
                                   </div>
                                 )}
-                                
-                                {/* Product Image */}
-                                <div className="w-full aspect-square rounded overflow-hidden bg-white border border-border mb-1">
-                                  {product.images && product.images.length > 0 ? (
-                                    <img
-                                      src={product.images[0]}
-                                      alt={product.title}
-                                      className="w-full h-full object-cover"
-                                    />
+                                <div className="w-full aspect-square rounded overflow-hidden bg-white border border-gray-100 mb-1">
+                                  {product.images?.[0] ? (
+                                    <img src={product.images[0]} alt={product.title} className="w-full h-full object-cover" />
                                   ) : (
                                     <div className="w-full h-full flex items-center justify-center">
-                                      <ImageIcon className="h-4 w-4 text-muted" />
+                                      <ImageIcon className="h-4 w-4 text-gray-300" />
                                     </div>
                                   )}
                                 </div>
-                                
-                                {/* Product Info */}
-                                <p className="text-[10px] font-medium text-foreground truncate leading-tight">
-                                  {product.title}
-                                </p>
+                                <p className="text-xs font-medium text-gray-900 truncate">{product.title}</p>
                               </div>
                             );
                           })}
@@ -1009,127 +977,83 @@ export default function CollectionsPage() {
                     </div>
                   </div>
                 )}
-                
-                {/* Selected Products Display */}
-                {editForm.productIds.length > 0 && (
-                  <div>
-                    <p className="text-xs text-muted mb-1">Selected ({editForm.productIds.length}):</p>
-                    <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
-                      {editForm.productIds.map((productId) => {
-                        const product = allProducts.find(p => p.id === productId);
-                        return (
-                          <div
-                            key={productId}
-                            className="relative group flex items-center gap-1.5 pl-1 pr-5 py-1 bg-secondary rounded-full border border-border"
-                          >
-                            {product?.images?.[0] ? (
-                              <img
-                                src={product.images[0]}
-                                alt={product.title}
-                                className="w-5 h-5 rounded-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-5 h-5 rounded-full bg-white border border-border flex items-center justify-center">
-                                <ImageIcon className="h-3 w-3 text-muted" />
-                              </div>
-                            )}
-                            <span className="text-[10px] text-foreground truncate max-w-[80px]">
-                              {product?.title || extractProductId(productId)}
-                            </span>
-                            <button
-                              onClick={() => handleEditRemoveProductId(productId)}
-                              disabled={editing}
-                              className="absolute right-1 w-4 h-4 bg-muted hover:bg-destructive rounded-full flex items-center justify-center transition-colors"
-                            >
-                              <X className="h-2.5 w-2.5 text-white" />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-                
-                {editForm.productIds.length === 0 && !showEditProductPicker && (
-                  <div className="text-center py-6 bg-secondary rounded-lg border border-dashed border-border">
-                    <Package className="mx-auto h-8 w-8 text-muted mb-2" />
-                    <p className="text-sm text-muted">
-                      No products in collection. Click &quot;Browse Products&quot; to add some.
-                    </p>
-                  </div>
-                )}
-              </div>
 
-              <div className="flex gap-3 pt-4 border-t border-border">
-                <Button
-                  onClick={handleUpdateCollection}
-                  disabled={editing || !editForm.name.trim() || !editForm.handle.trim()}
-                  className="flex-1"
-                >
-                  {editing ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2"></div>
-                      Updating...
-                    </>
-                  ) : (
-                    <>
-                      <Edit3 className="h-4 w-4 mr-2" />
-                      Update Collection
-                    </>
-                  )}
-                </Button>
-                <Button variant="outline" onClick={handleCloseEditModal} disabled={editing}>
-                  Cancel
-                </Button>
+                {editForm.productIds.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {editForm.productIds.map((productId) => {
+                      const product = allProducts.find(p => p.id === productId);
+                      return (
+                        <div key={productId} className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-full">
+                          <span className="text-xs text-gray-700 truncate max-w-[100px]">
+                            {product?.title || extractProductId(productId)}
+                          </span>
+                          <button
+                            onClick={() => handleEditRemoveProductId(productId)}
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+
+            <div className="p-6 border-t border-gray-100">
+              <button
+                onClick={handleUpdateCollection}
+                disabled={editing || !editForm.name.trim() || !editForm.handle.trim()}
+                className="w-full py-3 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-800 disabled:opacity-50"
+              >
+                {editing ? 'Updating...' : 'Update Collection'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && collectionToDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
-          <Card className="w-full max-w-md">
-            <div className="h-2 bg-destructive" />
-            <CardHeader>
-              <CardTitle className="text-xl text-destructive">Delete Collection</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-foreground">
-                Are you sure you want to delete <strong>{collectionToDelete.name}</strong>?
-              </p>
-              <p className="text-sm text-muted">
-                This action cannot be undone. The collection and all its associations will be permanently removed.
-              </p>
-              
-              <div className="flex gap-3 pt-4">
-                <Button
-                  onClick={handleConfirmDelete}
-                  disabled={deleting}
-                  variant="danger"
-                  className="flex-1"
-                >
-                  {deleting ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Deleting...
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete Collection
-                    </>
-                  )}
-                </Button>
-                <Button variant="outline" onClick={handleCancelDelete} disabled={deleting}>
-                  Cancel
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Delete Collection</h2>
+            <p className="text-gray-600 mb-4">
+              Are you sure you want to delete <strong>{collectionToDelete.name}</strong>? This action cannot be undone.
+            </p>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={handleConfirmDelete}
+                disabled={deleting}
+                className="flex-1 py-3 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+              <button
+                onClick={() => { setShowDeleteConfirm(false); setCollectionToDelete(null); }}
+                disabled={deleting}
+                className="flex-1 py-3 text-sm font-medium text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
+
+      {/* Filter Drawer */}
+      <FilterDrawer
+        isOpen={showFilterDrawer}
+        onClose={() => setShowFilterDrawer(false)}
+        title="Filter Collections"
+        filters={collectionFilters}
+        values={filterValues}
+        onApply={handleApplyFilters}
+        onReset={handleResetFilters}
+      />
     </DashboardLayout>
   );
 }
+

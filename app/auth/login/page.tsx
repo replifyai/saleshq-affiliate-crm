@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import { apiClient } from '@/lib/api-client';
 import { AdminProfile } from '@/types';
-import { Lock, Mail, ArrowRight, Sparkles } from 'lucide-react';
+import { Lock, Mail, ArrowRight } from 'lucide-react';
 
 interface LoginResponse {
   success: boolean;
@@ -47,62 +48,54 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left Side - Decorative */}
-      <div className="hidden lg:flex lg:w-1/2 bg-[#231F20] relative overflow-hidden">
-        {/* Animated gradient orbs */}
-        <div className="absolute inset-0">
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#FFD100] rounded-full blur-[120px] opacity-30 animate-pulse" />
-          <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-[#ffda34] rounded-full blur-[100px] opacity-20 animate-pulse" style={{ animationDelay: '1s' }} />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-[#FFFAE6] rounded-full blur-[80px] opacity-10" />
-        </div>
+    <div className="min-h-screen flex bg-white">
+      {/* Left Side - Clean & Simple */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#FDF8E1] via-[#FCF4D1] to-[#F9EBB2] relative overflow-hidden rounded-r-[30px] flex-col items-center justify-center">
+        {/* Subtle background accent */}
+        <div className="absolute top-0 right-0 w-72 h-72 bg-[#EAC312]/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-[#EAC312]/10 rounded-full blur-3xl" />
         
         {/* Content */}
-        <div className="relative z-10 flex flex-col justify-center px-16 text-white">
-          <div className="mb-8">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-[#FFD100] rounded-xl flex items-center justify-center">
-                <Sparkles className="w-6 h-6 text-[#231F20]" />
-              </div>
-              <span className="text-2xl font-bold text-[#FFD100]">SalesHQ</span>
-            </div>
-            <h1 className="text-5xl font-bold leading-tight mb-4">
-              Affiliate CRM
-              <span className="block text-[#FFD100]">Dashboard</span>
-            </h1>
-            <p className="text-lg text-gray-400 max-w-md">
-              Manage your creators, track coupons, and monitor sales performance all in one place.
-            </p>
-          </div>
+        <div className="relative z-10 flex flex-col items-center text-center px-12">
+          <Image
+            src="/Logo.png"
+            alt="Logo"
+            width={140}
+            height={56}
+            className="object-contain mb-8"
+            priority
+          />
           
-          {/* Feature highlights */}
-          <div className="space-y-4 mt-8">
-            {[
-              'Real-time analytics & reporting',
-              'Creator management tools',
-              'Automated commission tracking',
-            ].map((feature, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-[#FFD100] rounded-full" />
-                <span className="text-gray-300">{feature}</span>
-              </div>
-            ))}
+          <h1 className="text-3xl font-semibold text-gray-900 mb-3">
+            Affiliate Dashboard
+          </h1>
+          
+          <p className="text-gray-500 max-w-sm">
+            Manage creators, track performance, and grow your affiliate network.
+          </p>
+          
+          {/* Simple decorative line */}
+          <div className="mt-10 flex items-center gap-2">
+            <div className="w-8 h-0.5 bg-[#EAC312]/30 rounded-full" />
+            <div className="w-3 h-3 bg-[#EAC312] rounded-full" />
+            <div className="w-8 h-0.5 bg-[#EAC312]/30 rounded-full" />
           </div>
         </div>
-        
-        {/* Bottom decoration */}
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#FFD100] via-[#ffda34] to-[#FFFAE6]" />
       </div>
 
       {/* Right Side - Login Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center bg-white px-6 py-12">
         <div className="w-full max-w-md">
           {/* Mobile Logo */}
-          <div className="lg:hidden flex items-center justify-center gap-3 mb-10">
-            <div className="w-10 h-10 bg-[#FFD100] rounded-xl flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-[#231F20]" />
-            </div>
-            <span className="text-xl font-bold text-[#231F20]">SalesHQ CRM</span>
+          <div className="lg:hidden flex items-center justify-center mb-10">
+            <Image
+              src="/Logo.png"
+              alt="Logo"
+              width={100}
+              height={40}
+              className="object-contain"
+              priority
+            />
           </div>
 
           <div className="mb-10">
@@ -135,7 +128,7 @@ export default function LoginPage() {
                   required
                   autoComplete="email"
                   placeholder="you@example.com"
-                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-[#231F20] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:border-[#FFD100] transition-all"
+                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-[#231F20] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#EAC312] focus:border-[#EAC312] transition-all"
                 />
               </div>
             </div>
@@ -155,7 +148,7 @@ export default function LoginPage() {
                   required
                   autoComplete="current-password"
                   placeholder="••••••••"
-                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-[#231F20] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FFD100] focus:border-[#FFD100] transition-all"
+                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-[#231F20] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#EAC312] focus:border-[#EAC312] transition-all"
                 />
               </div>
             </div>
@@ -163,7 +156,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 bg-[#FFD100] hover:bg-[#ffda34] text-[#231F20] font-semibold py-4 px-6 rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-[#FFD100]/30 disabled:opacity-50 disabled:cursor-not-allowed group"
+              className="w-full flex items-center justify-center gap-2 bg-[#EAC312] hover:bg-[#D4B10F] text-[#231F20] font-semibold py-4 px-6 rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-[#EAC312]/30 disabled:opacity-50 disabled:cursor-not-allowed group"
             >
               {isLoading ? (
                 <>
@@ -190,7 +183,7 @@ export default function LoginPage() {
           </div>
 
           {/* Decorative bottom gradient - mobile */}
-          <div className="lg:hidden fixed bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#FFD100] via-[#ffda34] to-[#FFFAE6]" />
+          <div className="lg:hidden fixed bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#EAC312] via-[#F0D03A] to-[#FDF6D8]" />
         </div>
       </div>
     </div>

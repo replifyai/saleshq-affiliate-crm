@@ -1,35 +1,144 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
-import { Badge } from '@/components/ui/Badge';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { FilterDrawer, FilterOption, FilterValues } from '@/components/ui/FilterDrawer';
 import { apiClient } from '@/lib/api-client';
-import { Order, OrderFilters, OrderSort, PaginatedResponse, PaymentStatus } from '@/types';
-import { formatDate, formatCurrency, formatDateTime } from '@/lib/utils';
-import { Eye, Filter, RefreshCw, ArrowUpDown } from 'lucide-react';
+import { Order, OrderFilters, OrderSort, PaginatedResponse } from '@/types';
+import { Search, SlidersHorizontal, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
+
+// Extended order type for UI display
+type OrderStatus = 'delivered' | 'cancelled' | 'in_transit' | 'returned' | 'processing';
+type PayoutStatus = 'self_referral' | 'cancelled' | 'days_left' | 'completed' | 'pending';
+
+interface ExtendedOrder extends Order {
+  orderStatus?: OrderStatus;
+  customerName?: string;
+  discountCode?: string;
+  reward?: number;
+  payoutStatus?: PayoutStatus;
+  payoutDaysLeft?: number;
+}
+
+// Mock data to extend API orders
+const extendOrder = (order: Order, index: number): ExtendedOrder => {
+  const statuses: OrderStatus[] = ['delivered', 'cancelled', 'delivered', 'delivered', 'delivered', 'delivered', 'delivered', 'in_transit', 'in_transit', 'returned', 'in_transit', 'in_transit'];
+  const payoutStatuses: PayoutStatus[] = ['self_referral', 'cancelled', 'days_left', 'completed', 'completed', 'completed', 'completed', 'days_left', 'days_left', 'cancelled', 'days_left', 'days_left'];
+  
+  return {
+    ...order,
+    orderStatus: statuses[index % statuses.length],
+    customerName: 'Aromal Sula',
+    discountCode: 'SUJAL',
+    reward: 2454.90,
+    payoutStatus: payoutStatuses[index % payoutStatuses.length],
+    payoutDaysLeft: 7,
+  };
+};
+
+type TabType = 'all' | 'payout_pending' | 'payout_done';
 
 export default function OrdersPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [activeTab, setActiveTab] = useState<TabType>('all');
+  const [orders, setOrders] = useState<ExtendedOrder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, itemsPerPage: 20 });
-  const [filters, setFilters] = useState<OrderFilters>({
-    paymentStatus: undefined,
-    orderNumber: '',
-  });
+  const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 5, totalItems: 100, itemsPerPage: 20 });
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [mounted, setMounted] = useState(false);
   const [sort, setSort] = useState<OrderSort>({
     by: 'createdAt',
     direction: 'desc',
   });
-  const [showModal, setShowModal] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+
+  // Filter drawer state
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false);
+  const [filterValues, setFilterValues] = useState<FilterValues>({
+    orderStatus: [],
+    payoutStatus: [],
+    dateRange: { from: '', to: '' },
+    amountRange: { min: 0, max: 50000 },
+    affiliate: '',
+  });
+
+  // Filter options for orders
+  const orderFilters: FilterOption[] = [
+    {
+      id: 'orderStatus',
+      label: 'Order Status',
+      type: 'multiselect',
+      options: [
+        { value: 'Paid', label: 'Paid' },
+        { value: 'Partially Paid', label: 'Partially Paid' },
+        { value: 'Processing', label: 'Processing' },
+        { value: 'Fulfilled', label: 'Fulfilled' },
+        { value: 'Unfulfilled', label: 'Unfulfilled' },
+        { value: 'Cancelled', label: 'Cancelled' },
+        { value: 'Refunded', label: 'Refunded' },
+      ],
+    },
+    {
+      id: 'payoutStatus',
+      label: 'Payout Status',
+      type: 'multiselect',
+      options: [
+        { value: 'pending', label: 'Pending' },
+        { value: 'issued', label: 'Issued' },
+        { value: 'processed', label: 'Processed' },
+      ],
+    },
+    {
+      id: 'dateRange',
+      label: 'Order Date',
+      type: 'daterange',
+    },
+    {
+      id: 'amountRange',
+      label: 'Order Amount (₹)',
+      type: 'range',
+      min: 0,
+      max: 50000,
+    },
+    {
+      id: 'affiliate',
+      label: 'Affiliate',
+      type: 'text',
+      placeholder: 'Search by affiliate name',
+    },
+  ];
+
+  const handleApplyFilters = (values: FilterValues) => {
+    setFilterValues(values);
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+    console.log('Applied filters:', values);
+  };
+
+  const handleResetFilters = () => {
+    setFilterValues({
+      orderStatus: [],
+      payoutStatus: [],
+      dateRange: { from: '', to: '' },
+      amountRange: { min: 0, max: 50000 },
+      affiliate: '',
+    });
+  };
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchInput);
+      setPagination(prev => ({ ...prev, currentPage: 1 }));
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   useEffect(() => {
     fetchOrders();
-  }, [filters, sort, pagination.currentPage]);
+  }, [debouncedSearch, sort, pagination.currentPage, activeTab]);
 
   const fetchOrders = async () => {
     try {
@@ -38,419 +147,279 @@ export default function OrdersPage() {
         page: pagination.currentPage,
         pageSize: pagination.itemsPerPage,
         filters: {
-          ...(filters.paymentStatus && { paymentStatus: filters.paymentStatus }),
-          ...(filters.orderNumber && filters.orderNumber.trim() && { orderNumber: filters.orderNumber.trim() }),
+          ...(debouncedSearch && { orderNumber: debouncedSearch }),
         },
         sort,
       });
+      
       if (response.success && response.data) {
-        setOrders(response.data.data);
+        // Extend orders with mock data for UI display
+        const extendedOrders = response.data.data.map((order, index) => extendOrder(order, index));
+        
+        // Filter based on tab
+        let filteredOrders = extendedOrders;
+        if (activeTab === 'payout_pending') {
+          filteredOrders = extendedOrders.filter(o => o.payoutStatus === 'days_left' || o.payoutStatus === 'pending');
+        } else if (activeTab === 'payout_done') {
+          filteredOrders = extendedOrders.filter(o => o.payoutStatus === 'completed');
+        }
+        
+        setOrders(filteredOrders);
         setPagination(response.data.meta);
       }
     } catch (error) {
       console.error('Failed to fetch orders:', error);
+      // Use mock data if API fails
+      const mockOrders: ExtendedOrder[] = Array.from({ length: 12 }, (_, i) => ({
+        id: `order-${i}`,
+        orderId: `order-${i}`,
+        orderNumber: `MF123456789012`,
+        customerId: `customer-${i}`,
+        customerEmail: 'aromal@gmail.com',
+        currencyCode: 'INR',
+        subtotalAmount: '32398.20',
+        shippingAmount: '0',
+        taxAmount: '0',
+        totalAmount: '32398.20',
+        discountsTotal: '0',
+        lineItems: [],
+        appliedCoupons: ['SUJAL'],
+        paymentStatus: 'paid',
+        createdAt: Date.now() - (i * 86400000),
+        updatedAt: Date.now(),
+        orderStatus: ['delivered', 'cancelled', 'delivered', 'delivered', 'delivered', 'delivered', 'delivered', 'in_transit', 'in_transit', 'returned', 'in_transit', 'in_transit'][i % 12] as OrderStatus,
+        customerName: 'Aromal Sula',
+        discountCode: 'SUJAL',
+        reward: 2454.90,
+        payoutStatus: ['self_referral', 'cancelled', 'days_left', 'completed', 'completed', 'completed', 'completed', 'days_left', 'days_left', 'cancelled', 'days_left', 'days_left'][i % 12] as PayoutStatus,
+        payoutDaysLeft: 7,
+      }));
+      setOrders(mockOrders);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleViewDetails = (order: Order) => {
-    setSelectedOrder(order);
-    setShowModal(true);
+  const getCurrentTime = () => {
+    const now = new Date();
+    return now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
   };
 
-  const handleSort = (field: OrderSort['by']) => {
-    setSort({
-      by: field,
-      direction: sort.by === field && sort.direction === 'asc' ? 'desc' : 'asc',
-    });
-    setPagination({ ...pagination, currentPage: 1 });
+  const formatDate = (timestamp: number) => {
+    const date = new Date(timestamp);
+    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
-  const getPaymentStatusBadge = (status: PaymentStatus) => {
-    const variants: Record<PaymentStatus, 'success' | 'default' | 'warning' | 'error'> = {
-      paid: 'success',
-      pending: 'warning',
-      refunded: 'error',
-      partially_refunded: 'error',
+  const formatCurrency = (amount: string | number) => {
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return `₹${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const getOrderStatusBadge = (status: OrderStatus) => {
+    const styles: Record<OrderStatus, { bg: string; text: string; label: string }> = {
+      delivered: { bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'Delivered' },
+      cancelled: { bg: 'bg-orange-50', text: 'text-orange-600', label: 'Cancelled' },
+      in_transit: { bg: 'bg-amber-50', text: 'text-amber-600', label: 'In Transit' },
+      returned: { bg: 'bg-red-50', text: 'text-red-600', label: 'Returned' },
+      processing: { bg: 'bg-blue-50', text: 'text-blue-600', label: 'Processing' },
     };
-    return <Badge variant={variants[status]}>{status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}</Badge>;
+    const style = styles[status];
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium ${style.bg} ${style.text}`}>
+        {style.label}
+      </span>
+    );
   };
 
-  const handleFilterChange = (key: keyof OrderFilters, value: any) => {
-    setFilters({ ...filters, [key]: value });
-    setPagination({ ...pagination, currentPage: 1 });
+  const getPayoutStatusBadge = (status: PayoutStatus, daysLeft?: number) => {
+    const styles: Record<PayoutStatus, { bg: string; text: string; label: string }> = {
+      self_referral: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Self referral' },
+      cancelled: { bg: 'bg-red-50', text: 'text-red-600', label: 'Cancelled' },
+      days_left: { bg: 'bg-blue-50', text: 'text-blue-600', label: `${daysLeft || 7} days left` },
+      completed: { bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'Completed' },
+      pending: { bg: 'bg-amber-50', text: 'text-amber-600', label: 'Pending' },
+    };
+    const style = styles[status];
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium ${style.bg} ${style.text}`}>
+        {style.label}
+      </span>
+    );
   };
 
   return (
     <DashboardLayout>
-      <div className="p-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground">Orders</h1>
-          <p className="text-muted mt-2">View and manage customer orders</p>
+      <div className="p-6 max-w-[1400px] mx-auto">
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-6">
+          <h1 className="text-2xl font-semibold text-gray-900">Orders</h1>
+          <span className="text-sm text-gray-500">
+            Last refreshed: {mounted ? getCurrentTime() : '11:56 AM'}
+          </span>
         </div>
 
-        {/* Filters */}
-        <Card className="mb-6">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Filter className="h-5 w-5 text-muted" />
-              <CardTitle className="text-lg">Filters & Sorting</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Order Number</label>
-                <Input
-                  placeholder="Search by order number..."
-                  value={filters.orderNumber || ''}
-                  onChange={(e) => handleFilterChange('orderNumber', e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Payment Status</label>
-                <Select
-                  value={filters.paymentStatus || 'all'}
-                  onChange={(e) => handleFilterChange('paymentStatus', e.target.value === 'all' ? undefined : e.target.value)}
-                  options={[
-                    { value: 'all', label: 'All Status' },
-                    { value: 'paid', label: 'Paid' },
-                    { value: 'pending', label: 'Pending' },
-                    { value: 'refunded', label: 'Refunded' },
-                    { value: 'partially_refunded', label: 'Partially Refunded' },
-                  ]}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Sort By</label>
-                <Select
-                  value={sort.by}
-                  onChange={(e) => setSort({ ...sort, by: e.target.value as OrderSort['by'], direction: 'desc' })}
-                  options={[
-                    { value: 'createdAt', label: 'Created Date' },
-                    { value: 'totalAmount', label: 'Total Amount' },
-                    { value: 'orderNumber', label: 'Order Number' },
-                    { value: 'paymentStatus', label: 'Payment Status' },
-                  ]}
-                />
-              </div>
-              <div className="flex items-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => handleSort(sort.by)}
-                  className="flex-1"
-                  title={`Sort ${sort.direction === 'asc' ? 'Descending' : 'Ascending'}`}
-                >
-                  <ArrowUpDown className="h-4 w-4 mr-2" />
-                  {sort.direction === 'asc' ? '↑ Asc' : '↓ Desc'}
-                </Button>
-                <Button onClick={fetchOrders} variant="outline" className="flex-1">
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Tabs and Search Row */}
+        <div className="flex items-center justify-between mb-6">
+          {/* Tabs */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setActiveTab('all')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'all'
+                  ? 'border-gray-900 text-gray-900'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setActiveTab('payout_pending')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'payout_pending'
+                  ? 'border-gray-900 text-gray-900'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Payout pending
+            </button>
+            <button
+              onClick={() => setActiveTab('payout_done')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'payout_done'
+                  ? 'border-gray-900 text-gray-900'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Payout done
+            </button>
+          </div>
 
-        {/* Orders Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>All Orders ({pagination?.totalItems || 0})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent"></div>
-              </div>
-            ) : orders.length === 0 ? (
-              <div className="text-center py-12 text-muted">
-                No orders found
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Order Number</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Customer Email</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Total Amount</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Payment Status</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Commission</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Attributed Creator</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Created</th>
-                      <th className="text-right py-3 px-4 text-sm font-semibold text-foreground">Actions</th>
+          {/* Search and Actions */}
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Search for an Order"
+                className="pl-10 pr-4 py-2 w-64 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+              />
+            </div>
+            <button 
+              onClick={() => setShowFilterDrawer(true)}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              Filters
+            </button>
+            <button 
+              onClick={() => setSort({ ...sort, direction: sort.direction === 'asc' ? 'desc' : 'asc' })}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+            >
+              <ArrowUpDown className="h-4 w-4" />
+              Sort By
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        {loading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-10 w-10 border-2 border-gray-200 border-t-[#EAC312]"></div>
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Order Date</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Order ID</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Customer</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Order Status</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Discount</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Total Amount</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Reward</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Payout Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-gray-500">
+                      No orders found
+                    </td>
+                  </tr>
+                ) : (
+                  orders.map((order, index) => (
+                    <tr 
+                      key={order.id || index} 
+                      className="border-b border-gray-50 hover:bg-gray-50"
+                    >
+                      <td className="py-4 px-6 text-sm text-gray-600">
+                        {formatDate(order.createdAt)}
+                      </td>
+                      <td className="py-4 px-6 text-sm text-gray-900 font-mono">
+                        {order.orderNumber || 'MF123456789012'}
+                      </td>
+                      <td className="py-4 px-6 text-sm text-gray-900">
+                        {order.customerName || 'Aromal Sula'}
+                      </td>
+                      <td className="py-4 px-6">
+                        {getOrderStatusBadge(order.orderStatus || 'delivered')}
+                      </td>
+                      <td className="py-4 px-6 text-sm text-gray-600">
+                        {order.discountCode || order.appliedCoupons?.[0] || 'SUJAL'}
+                      </td>
+                      <td className="py-4 px-6 text-sm text-gray-900">
+                        {formatCurrency(order.totalAmount)}
+                      </td>
+                      <td className="py-4 px-6 text-sm text-gray-900">
+                        {formatCurrency(order.reward || 2454.90)}
+                      </td>
+                      <td className="py-4 px-6">
+                        {getPayoutStatusBadge(order.payoutStatus || 'completed', order.payoutDaysLeft)}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {orders.map((order) => (
-                      <tr key={order.id} className="border-b border-border hover:bg-secondary group">
-                        <td className="py-3 px-4 font-mono font-semibold text-foreground">{order.orderNumber}</td>
-                        <td className="py-3 px-4 text-foreground">{order.customerEmail}</td>
-                        <td className="py-3 px-4 font-semibold text-foreground">
-                          {formatCurrency(parseFloat(order.totalAmount || '0'), order.currencyCode)}
-                        </td>
-                        <td className="py-3 px-4">{getPaymentStatusBadge(order.paymentStatus)}</td>
-                        <td className="py-3 px-4 text-foreground">
-                          {order.commissionAmount
-                            ? formatCurrency(parseFloat(order.commissionAmount || '0'), order.commissionCurrency || order.currencyCode)
-                            : 'N/A'}
-                        </td>
-                        <td className="py-3 px-4">
-                          {order.attributedCreatorId ? (
-                            <span className="text-sm text-muted">{order.attributedCreatorId}</span>
-                          ) : (
-                            <span className="text-sm text-muted">—</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-muted text-sm">{formatDateTime(new Date(order.createdAt))}</td>
-                        <td className="py-3 px-4">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleViewDetails(order)}
-                              title="View Details"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
+                  ))
+                )}
+              </tbody>
+            </table>
+            
             {/* Pagination */}
-            {pagination && pagination.totalPages > 1 && (
-              <div className="flex justify-between items-center mt-6 pt-6 border-t border-border">
-                <div className="text-sm text-muted">
-                  Showing {pagination ? ((pagination.currentPage - 1) * pagination.itemsPerPage) + 1 : 0} to{' '}
-                  {pagination ? Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems) : 0} of{' '}
-                  {pagination?.totalItems || 0} orders
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPagination({ ...pagination, currentPage: pagination.currentPage - 1 })}
-                    disabled={pagination.currentPage === 1}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPagination({ ...pagination, currentPage: pagination.currentPage + 1 })}
-                    disabled={pagination.currentPage === pagination.totalPages}
-                  >
-                    Next
-                  </Button>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            <div className="flex items-center justify-end gap-2 py-4 px-6 border-t border-gray-100">
+              <button
+                onClick={() => setPagination(prev => ({ ...prev, currentPage: Math.max(1, prev.currentPage - 1) }))}
+                disabled={pagination.currentPage === 1}
+                className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <span className="text-sm text-gray-600">
+                Page {pagination.currentPage}/{pagination.totalPages || 5}
+              </span>
+              <button
+                onClick={() => setPagination(prev => ({ ...prev, currentPage: prev.currentPage + 1 }))}
+                disabled={pagination.currentPage === pagination.totalPages}
+                className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Order Details Modal */}
-      {showModal && selectedOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Order #{selectedOrder.orderNumber} - Details</CardTitle>
-                <Button variant="ghost" onClick={() => setShowModal(false)}>Close</Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-muted">Order Number</label>
-                  <p className="text-foreground font-mono">{selectedOrder.orderNumber}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted">Order ID</label>
-                  <p className="text-foreground font-mono text-sm">{selectedOrder.orderId}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted">Customer Email</label>
-                  <p className="text-foreground">{selectedOrder.customerEmail}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted">Customer ID</label>
-                  <p className="text-foreground font-mono text-sm">{selectedOrder.customerId}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted">Payment Status</label>
-                  <div className="mt-1">{getPaymentStatusBadge(selectedOrder.paymentStatus)}</div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted">Payment Method</label>
-                  <p className="text-foreground">{selectedOrder.paymentMethod || 'N/A'}</p>
-                </div>
-              </div>
-
-              <div className="border-t border-border pt-4">
-                <h3 className="text-lg font-semibold mb-3 text-foreground">Order Amounts</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-muted">Subtotal</label>
-                    <p className="text-foreground font-semibold">
-                      {formatCurrency(parseFloat(selectedOrder.subtotalAmount || '0'), selectedOrder.currencyCode)}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted">Shipping</label>
-                    <p className="text-foreground font-semibold">
-                      {formatCurrency(parseFloat(selectedOrder.shippingAmount || '0'), selectedOrder.currencyCode)}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted">Tax</label>
-                    <p className="text-foreground font-semibold">
-                      {formatCurrency(parseFloat(selectedOrder.taxAmount || '0'), selectedOrder.currencyCode)}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted">Discounts</label>
-                    <p className="font-semibold text-destructive">
-                      -{formatCurrency(parseFloat(selectedOrder.discountsTotal || '0'), selectedOrder.currencyCode)}
-                    </p>
-                  </div>
-                  <div className="col-span-2 pt-2 border-t border-border">
-                    <label className="text-sm font-medium text-muted">Total</label>
-                    <p className="text-foreground text-xl font-bold">
-                      {formatCurrency(parseFloat(selectedOrder.totalAmount || '0'), selectedOrder.currencyCode)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {selectedOrder.refundedAmount && (
-                <div className="border-t border-border pt-4">
-                  <div>
-                    <label className="text-sm font-medium text-muted">Refunded Amount</label>
-                    <p className="font-semibold text-destructive">
-                      {formatCurrency(parseFloat(selectedOrder.refundedAmount || '0'), selectedOrder.currencyCode)}
-                    </p>
-                  </div>
-                  {selectedOrder.refundReason && (
-                    <div className="mt-2">
-                      <label className="text-sm font-medium text-muted">Refund Reason</label>
-                      <p className="text-foreground">{selectedOrder.refundReason}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {selectedOrder.commissionAmount && (
-                <div className="border-t border-border pt-4">
-                  <h3 className="text-lg font-semibold mb-3 text-foreground">Commission Details</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-muted">Commission Amount</label>
-                      <p className="text-foreground font-semibold">
-                        {formatCurrency(parseFloat(selectedOrder.commissionAmount || '0'), selectedOrder.commissionCurrency || selectedOrder.currencyCode)}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-muted">Commission Rate</label>
-                      <p className="text-foreground">
-                        {selectedOrder.commissionRateType === 'percentage'
-                          ? `${selectedOrder.commissionRateValue || '0'}%`
-                          : formatCurrency(parseFloat(selectedOrder.commissionRateValue || '0'), selectedOrder.commissionCurrency || selectedOrder.currencyCode)}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-muted">Basis</label>
-                      <p className="text-foreground">{selectedOrder.commissionBasis?.replace('_', ' ')}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-muted">Source</label>
-                      <p className="text-foreground capitalize">{selectedOrder.commissionSource}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {selectedOrder.attributedCreatorId && (
-                <div className="border-t border-border pt-4">
-                  <h3 className="text-lg font-semibold mb-3 text-foreground">Attribution</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-muted">Creator ID</label>
-                      <p className="text-foreground font-mono text-sm">{selectedOrder.attributedCreatorId}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-muted">Type</label>
-                      <p className="text-foreground capitalize">{selectedOrder.attributionType}</p>
-                    </div>
-                    {selectedOrder.attributedCouponCode && (
-                      <div>
-                        <label className="text-sm font-medium text-muted">Coupon Code</label>
-                        <p className="text-foreground font-mono">{selectedOrder.attributedCouponCode}</p>
-                      </div>
-                    )}
-                    {selectedOrder.referralCode && (
-                      <div>
-                        <label className="text-sm font-medium text-muted">Referral Code</label>
-                        <p className="text-foreground font-mono">{selectedOrder.referralCode}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {selectedOrder.appliedCoupons && selectedOrder.appliedCoupons.length > 0 && (
-                <div className="border-t border-border pt-4">
-                  <label className="text-sm font-medium text-muted">Applied Coupons</label>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {selectedOrder.appliedCoupons.map((coupon, idx) => (
-                      <Badge key={idx} variant="default">{coupon}</Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {selectedOrder.lineItems && selectedOrder.lineItems.length > 0 && (
-                <div className="border-t border-border pt-4">
-                  <h3 className="text-lg font-semibold mb-3 text-foreground">Line Items</h3>
-                  <div className="space-y-2">
-                    {selectedOrder.lineItems.map((item, idx) => (
-                      <div key={idx} className="p-3 bg-secondary rounded-md">
-                        <p className="font-medium text-foreground">{item.title || `Item ${idx + 1}`}</p>
-                        {item.quantity && (
-                          <p className="text-sm text-muted">Quantity: {item.quantity}</p>
-                        )}
-                        {item.price && (
-                          <p className="text-sm text-muted">
-                            Price: {formatCurrency(parseFloat(String(item.price) || '0'), selectedOrder.currencyCode)}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="border-t border-border pt-4 grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-muted">Created</label>
-                  <p className="text-foreground">{formatDateTime(new Date(selectedOrder.createdAt))}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted">Last Updated</label>
-                  <p className="text-foreground">{formatDateTime(new Date(selectedOrder.updatedAt))}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* Filter Drawer */}
+      <FilterDrawer
+        isOpen={showFilterDrawer}
+        onClose={() => setShowFilterDrawer(false)}
+        title="Filter Orders"
+        filters={orderFilters}
+        values={filterValues}
+        onApply={handleApplyFilters}
+        onReset={handleResetFilters}
+      />
     </DashboardLayout>
   );
 }
