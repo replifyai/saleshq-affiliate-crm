@@ -279,7 +279,7 @@ export default function AffiliateProfilePage() {
                 </div>
                 <div className="flex items-end gap-2">
                   <span className="text-2xl font-semibold text-gray-900">
-                    ₹{mockAffiliateData.totalCommission.toLocaleString('en-IN')},
+                    ₹{mockAffiliateData.totalCommission.toLocaleString('en-IN')}
                   </span>
                   <span className="text-sm text-emerald-500 mb-1">24% ↑</span>
                 </div>
