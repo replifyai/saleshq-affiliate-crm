@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import { apiClient } from '@/lib/api-client';
 import { AdminProfile } from '@/types';
-import { Lock, Mail, ArrowRight } from 'lucide-react';
+import { Lock, Mail, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
 interface LoginResponse {
   success: boolean;
@@ -16,6 +16,7 @@ interface LoginResponse {
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
@@ -34,7 +35,7 @@ export default function LoginPage() {
       if (response.success && response.adminProfile) {
         // Update context with admin profile
         login(response.adminProfile);
-        
+
         // Redirect to dashboard
         window.location.href = '/dashboard';
       } else {
@@ -54,7 +55,7 @@ export default function LoginPage() {
         {/* Subtle background accent */}
         <div className="absolute top-0 right-0 w-72 h-72 bg-[#EAC312]/10 rounded-full blur-3xl" />
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-[#EAC312]/10 rounded-full blur-3xl" />
-        
+
         {/* Content */}
         <div className="relative z-10 flex flex-col items-center text-center px-12">
           <Image
@@ -65,15 +66,15 @@ export default function LoginPage() {
             className="object-contain mb-8"
             priority
           />
-          
+
           <h1 className="text-3xl font-semibold text-gray-900 mb-3">
             Affiliate Dashboard
           </h1>
-          
+
           <p className="text-gray-500 max-w-sm">
             Manage creators, track performance, and grow your affiliate network.
           </p>
-          
+
           {/* Simple decorative line */}
           <div className="mt-10 flex items-center gap-2">
             <div className="w-8 h-0.5 bg-[#EAC312]/30 rounded-full" />
@@ -142,14 +143,21 @@ export default function LoginPage() {
                   <Lock className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   autoComplete="current-password"
                   placeholder="••••••••"
-                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-[#231F20] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#EAC312] focus:border-[#EAC312] transition-all"
+                  className="w-full pl-12 pr-12 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-[#231F20] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#EAC312] focus:border-[#EAC312] transition-all"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
               </div>
             </div>
 
