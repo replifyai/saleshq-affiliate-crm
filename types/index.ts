@@ -298,3 +298,70 @@ export interface ShopifyProductsResponse {
   products: ShopifyProduct[];
 }
 
+// Extended Affiliate types for new UI
+export interface AffiliateManager {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  totalAffiliates: number;
+  totalSales: number;
+  createdAt: number;
+}
+
+export interface ExtendedAffiliate extends Creator {
+  managedBy?: string;
+  managerName?: string;
+  discountCode?: string;
+  discountPercent?: number;
+  reward?: number;
+  totalSales?: number;
+  totalOrders?: number;
+  totalCommission?: number;
+  featuredCollections?: FeaturedCollection[];
+  featuredProducts?: FeaturedProduct[];
+}
+
+export interface FeaturedCollection {
+  id: string;
+  name: string;
+  url: string;
+}
+
+export interface FeaturedProduct {
+  id: string;
+  name: string;
+  price: number;
+  originalPrice?: number;
+  image: string;
+}
+
+export interface InviteAffiliateData {
+  name: string;
+  phoneNumber: string;
+  email: string;
+  discountPercent: number;
+  discountType: 'percentage' | 'fixed';
+  commissionPercent: number;
+  commissionType: 'percentage' | 'fixed';
+  minOrderValue?: number;
+  discountCode: string;
+  invitedBy: string;
+}
+
+export interface AcceptAffiliateData {
+  discountPercent: number;
+  discountType: 'percentage' | 'fixed';
+  commissionPercent: number;
+  commissionType: 'percentage' | 'fixed';
+  minOrderValue?: number;
+  discountCode: string;
+  managerId: string;
+}
+
+export interface NewManagerData {
+  name: string;
+  email: string;
+  phone: string;
+}
+
