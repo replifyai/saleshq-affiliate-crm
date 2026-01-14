@@ -43,13 +43,13 @@ export default function AffiliatesPage() {
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [mounted, setMounted] = useState(false);
-  
+
   // Modal states
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [selectedAffiliate, setSelectedAffiliate] = useState<ExtendedAffiliate | null>(null);
   const [processingAction, setProcessingAction] = useState(false);
-  
+
   // Form states
   const [inviteData, setInviteData] = useState<InviteAffiliateData>({
     name: '',
@@ -63,7 +63,7 @@ export default function AffiliatesPage() {
     discountCode: '',
     invitedBy: 'Abdal',
   });
-  
+
   const [acceptData, setAcceptData] = useState<AcceptAffiliateData>({
     discountPercent: 10,
     discountType: 'percentage',
@@ -165,7 +165,7 @@ export default function AffiliatesPage() {
   const fetchAffiliates = async () => {
     try {
       setLoading(true);
-      
+
       // Fetch approved affiliates for "Current Affiliates" tab
       const approvedResponse = await apiClient.post<{ success: boolean; data: CreatorsResponse }>('/creators', {
         page,
@@ -176,12 +176,12 @@ export default function AffiliatesPage() {
         },
         sort: { by: 'createdAt', direction: 'desc' },
       });
-      
+
       if (approvedResponse.success && approvedResponse.data) {
         setAffiliates(approvedResponse.data.items.map((c, i) => extendAffiliate(c, i)));
         setPagination(approvedResponse.data);
       }
-      
+
       // Fetch pending affiliates
       const pendingResponse = await apiClient.post<{ success: boolean; data: CreatorsResponse }>('/creators', {
         page: 1,
@@ -189,7 +189,7 @@ export default function AffiliatesPage() {
         filters: { approved: 'pending' },
         sort: { by: 'createdAt', direction: 'desc' },
       });
-      
+
       if (pendingResponse.success && pendingResponse.data) {
         // Also include rejected for the pending tab
         const rejectedResponse = await apiClient.post<{ success: boolean; data: CreatorsResponse }>('/creators', {
@@ -198,12 +198,12 @@ export default function AffiliatesPage() {
           filters: { approved: 'rejected' },
           sort: { by: 'createdAt', direction: 'desc' },
         });
-        
+
         const pendingItems = pendingResponse.data.items.map((c, i) => extendAffiliate(c, i));
-        const rejectedItems = rejectedResponse.success && rejectedResponse.data 
+        const rejectedItems = rejectedResponse.success && rejectedResponse.data
           ? rejectedResponse.data.items.map((c, i) => extendAffiliate(c, i))
           : [];
-        
+
         setPendingAffiliates([...pendingItems, ...rejectedItems]);
       }
     } catch (error) {
@@ -222,13 +222,14 @@ export default function AffiliatesPage() {
       commissionType: 'percentage',
       minOrderValue: undefined,
       discountCode: affiliate.name.toUpperCase().replace(/\s+/g, ''),
+      managerId: '',
     });
     setShowAcceptModal(true);
   };
 
   const handleAcceptSubmit = async () => {
     if (!selectedAffiliate) return;
-    
+
     try {
       setProcessingAction(true);
       const response = await apiClient.put<{ success: boolean; message: string }>(
@@ -241,7 +242,7 @@ export default function AffiliatesPage() {
           }
         }
       );
-      
+
       if (response.success) {
         await fetchAffiliates();
         setShowAcceptModal(false);
@@ -256,13 +257,13 @@ export default function AffiliatesPage() {
 
   const handleReject = async (affiliateId: string) => {
     if (!confirm('Are you sure you want to reject this affiliate?')) return;
-    
+
     try {
       setProcessingAction(true);
       const response = await apiClient.put<{ success: boolean; message: string }>(
         `/creators/${affiliateId}/reject`
       );
-      
+
       if (response.success) {
         await fetchAffiliates();
       }
@@ -335,35 +336,32 @@ export default function AffiliatesPage() {
           <div className="flex items-center gap-1">
             <button
               onClick={() => setActiveTab('current')}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'current'
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'current'
                   ? 'border-gray-900 text-gray-900'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+                }`}
             >
               Current Affiliates
             </button>
             <button
               onClick={() => setActiveTab('pending')}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'pending'
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'pending'
                   ? 'border-gray-900 text-gray-900'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+                }`}
             >
               Pending
             </button>
             <button
               onClick={() => setActiveTab('managers')}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'managers'
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'managers'
                   ? 'border-gray-900 text-gray-900'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+                }`}
             >
               Affiliate Managers
             </button>
-            </div>
+          </div>
 
           {/* Search and Actions */}
           <div className="flex items-center gap-3">
@@ -381,7 +379,7 @@ export default function AffiliatesPage() {
             )}
             {activeTab === 'current' && (
               <>
-                <button 
+                <button
                   onClick={() => setShowFilterDrawer(true)}
                   className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
                 >
@@ -413,15 +411,15 @@ export default function AffiliatesPage() {
                 Add Manager
               </button>
             )}
-              </div>
-            </div>
+          </div>
+        </div>
 
         {/* Content */}
-            {loading ? (
-              <div className="flex justify-center items-center h-64">
+        {loading ? (
+          <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-10 w-10 border-2 border-gray-200 border-t-[#EAC312]"></div>
-              </div>
-            ) : (
+          </div>
+        ) : (
           <>
             {/* Current Affiliates Tab */}
             {activeTab === 'current' && (
@@ -448,8 +446,8 @@ export default function AffiliatesPage() {
                       </tr>
                     ) : (
                       affiliates.map((affiliate) => (
-                        <tr 
-                          key={affiliate.id} 
+                        <tr
+                          key={affiliate.id}
                           className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer group"
                           onClick={() => handleViewAffiliate(affiliate)}
                         >
@@ -478,7 +476,7 @@ export default function AffiliatesPage() {
                     )}
                   </tbody>
                 </table>
-                
+
                 {/* Pagination */}
                 {pagination && pagination.totalPages > 1 && (
                   <div className="flex items-center justify-end gap-2 py-4 px-6 border-t border-gray-100">
@@ -542,10 +540,10 @@ export default function AffiliatesPage() {
                             </div>
                           </td>
                           <td className="py-4 px-6 text-sm text-gray-600">
-                            {new Date(affiliate.createdAt).toLocaleDateString('en-IN', { 
-                              day: '2-digit', 
-                              month: 'short', 
-                              year: 'numeric' 
+                            {new Date(affiliate.createdAt).toLocaleDateString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric'
                             })}
                           </td>
                           <td className="py-4 px-6">
@@ -635,7 +633,7 @@ export default function AffiliatesPage() {
               >
                 <X className="h-5 w-5" />
               </button>
-                </div>
+            </div>
 
             <div className="space-y-4">
               <div>
@@ -695,7 +693,7 @@ export default function AffiliatesPage() {
                   placeholder="Enter Amount"
                   className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
                 />
-      </div>
+              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Discount Code</label>
@@ -774,7 +772,7 @@ export default function AffiliatesPage() {
                 </div>
               </div>
 
-                <div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
                 <input
                   type="email"
@@ -783,9 +781,9 @@ export default function AffiliatesPage() {
                   placeholder="Aromalsula@gmail.com"
                   className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
                 />
-                  </div>
+              </div>
 
-                <div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Discount to customer</label>
                 <div className="flex gap-2">
                   <div className="flex-1 relative">
@@ -832,8 +830,8 @@ export default function AffiliatesPage() {
                   </select>
                 </div>
               </div>
-              
-                <div>
+
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Min order Value</label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
@@ -847,7 +845,7 @@ export default function AffiliatesPage() {
                 </div>
               </div>
 
-                  <div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Discount Code</label>
                 <input
                   type="text"
@@ -856,7 +854,7 @@ export default function AffiliatesPage() {
                   placeholder="AROMAL"
                   className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
                 />
-                  </div>
+              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Invite By</label>
@@ -896,7 +894,7 @@ export default function AffiliatesPage() {
               >
                 <X className="h-5 w-5" />
               </button>
-              </div>
+            </div>
 
             <div className="space-y-4">
               <div>
@@ -909,7 +907,7 @@ export default function AffiliatesPage() {
                   className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Email <span className="text-red-500">*</span></label>
                 <input
@@ -931,7 +929,7 @@ export default function AffiliatesPage() {
                   className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
                 />
               </div>
-              </div>
+            </div>
 
             <button
               onClick={() => {
@@ -954,7 +952,7 @@ export default function AffiliatesPage() {
             >
               Add Manager
             </button>
-              </div>
+          </div>
         </div>
       )}
 
