@@ -4,7 +4,21 @@ import { fetchBackend, handleApiError } from '@/lib/server-utils';
 
 export async function POST(request: NextRequest) {
   try {
-    const body: OrderRequest = await request.json();
+    // Safely parse request body
+    let body: Partial<OrderRequest> = {};
+    try {
+      const text = await request.text();
+      if (text && text.trim()) {
+        body = JSON.parse(text);
+      }
+    } catch (parseError) {
+      // If JSON parsing fails, return error
+      console.error('JSON parse error:', parseError);
+      return NextResponse.json(
+        { success: false, error: 'Invalid JSON in request body' },
+        { status: 400 }
+      );
+    }
     
     const { page = 1, pageSize = 20, filters = {}, sort = { by: 'createdAt', direction: 'desc' } } = body;
 

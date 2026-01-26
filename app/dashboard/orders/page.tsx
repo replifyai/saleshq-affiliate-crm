@@ -5,42 +5,13 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { FilterDrawer, FilterOption, FilterValues } from '@/components/ui/FilterDrawer';
 import { apiClient } from '@/lib/api-client';
 import { Order, OrderFilters, OrderSort, PaginatedResponse } from '@/types';
-import { Search, SlidersHorizontal, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
-
-// Extended order type for UI display
-type OrderStatus = 'delivered' | 'cancelled' | 'in_transit' | 'returned' | 'processing';
-type PayoutStatus = 'self_referral' | 'cancelled' | 'days_left' | 'completed' | 'pending';
-
-interface ExtendedOrder extends Order {
-  orderStatus?: OrderStatus;
-  customerName?: string;
-  discountCode?: string;
-  reward?: number;
-  payoutStatus?: PayoutStatus;
-  payoutDaysLeft?: number;
-}
-
-// Mock data to extend API orders
-const extendOrder = (order: Order, index: number): ExtendedOrder => {
-  const statuses: OrderStatus[] = ['delivered', 'cancelled', 'delivered', 'delivered', 'delivered', 'delivered', 'delivered', 'in_transit', 'in_transit', 'returned', 'in_transit', 'in_transit'];
-  const payoutStatuses: PayoutStatus[] = ['self_referral', 'cancelled', 'days_left', 'completed', 'completed', 'completed', 'completed', 'days_left', 'days_left', 'cancelled', 'days_left', 'days_left'];
-  
-  return {
-    ...order,
-    orderStatus: statuses[index % statuses.length],
-    customerName: 'Aromal Sula',
-    discountCode: 'SUJAL',
-    reward: 2454.90,
-    payoutStatus: payoutStatuses[index % payoutStatuses.length],
-    payoutDaysLeft: 7,
-  };
-};
+import { Search, SlidersHorizontal, ArrowUpDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 type TabType = 'all' | 'payout_pending' | 'payout_done';
 
 export default function OrdersPage() {
   const [activeTab, setActiveTab] = useState<TabType>('all');
-  const [orders, setOrders] = useState<ExtendedOrder[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 5, totalItems: 100, itemsPerPage: 20 });
   const [searchInput, setSearchInput] = useState('');
@@ -60,6 +31,10 @@ export default function OrdersPage() {
     amountRange: { min: 0, max: 50000 },
     affiliate: '',
   });
+
+  // Order details modal state
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [showOrderModal, setShowOrderModal] = useState(false);
 
   // Filter options for orders
   const orderFilters: FilterOption[] = [
@@ -153,48 +128,12 @@ export default function OrdersPage() {
       });
       
       if (response.success && response.data) {
-        // Extend orders with mock data for UI display
-        const extendedOrders = response.data.data.map((order, index) => extendOrder(order, index));
-        
-        // Filter based on tab
-        let filteredOrders = extendedOrders;
-        if (activeTab === 'payout_pending') {
-          filteredOrders = extendedOrders.filter(o => o.payoutStatus === 'days_left' || o.payoutStatus === 'pending');
-        } else if (activeTab === 'payout_done') {
-          filteredOrders = extendedOrders.filter(o => o.payoutStatus === 'completed');
-        }
-        
-        setOrders(filteredOrders);
+        setOrders(response.data.data);
         setPagination(response.data.meta);
       }
     } catch (error) {
       console.error('Failed to fetch orders:', error);
-      // Use mock data if API fails
-      const mockOrders: ExtendedOrder[] = Array.from({ length: 12 }, (_, i) => ({
-        id: `order-${i}`,
-        orderId: `order-${i}`,
-        orderNumber: `MF123456789012`,
-        customerId: `customer-${i}`,
-        customerEmail: 'aromal@gmail.com',
-        currencyCode: 'INR',
-        subtotalAmount: '32398.20',
-        shippingAmount: '0',
-        taxAmount: '0',
-        totalAmount: '32398.20',
-        discountsTotal: '0',
-        lineItems: [],
-        appliedCoupons: ['SUJAL'],
-        paymentStatus: 'paid',
-        createdAt: Date.now() - (i * 86400000),
-        updatedAt: Date.now(),
-        orderStatus: ['delivered', 'cancelled', 'delivered', 'delivered', 'delivered', 'delivered', 'delivered', 'in_transit', 'in_transit', 'returned', 'in_transit', 'in_transit'][i % 12] as OrderStatus,
-        customerName: 'Aromal Sula',
-        discountCode: 'SUJAL',
-        reward: 2454.90,
-        payoutStatus: ['self_referral', 'cancelled', 'days_left', 'completed', 'completed', 'completed', 'completed', 'days_left', 'days_left', 'cancelled', 'days_left', 'days_left'][i % 12] as PayoutStatus,
-        payoutDaysLeft: 7,
-      }));
-      setOrders(mockOrders);
+      setOrders([]);
     } finally {
       setLoading(false);
     }
@@ -215,15 +154,21 @@ export default function OrdersPage() {
     return `₹${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const getOrderStatusBadge = (status: OrderStatus) => {
-    const styles: Record<OrderStatus, { bg: string; text: string; label: string }> = {
+  const getOrderStatusBadge = (status?: string) => {
+    if (!status) return <span className="text-sm text-gray-400">-</span>;
+    
+    const styles: Record<string, { bg: string; text: string; label: string }> = {
       delivered: { bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'Delivered' },
       cancelled: { bg: 'bg-orange-50', text: 'text-orange-600', label: 'Cancelled' },
       in_transit: { bg: 'bg-amber-50', text: 'text-amber-600', label: 'In Transit' },
       returned: { bg: 'bg-red-50', text: 'text-red-600', label: 'Returned' },
       processing: { bg: 'bg-blue-50', text: 'text-blue-600', label: 'Processing' },
+      paid: { bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'Paid' },
+      pending: { bg: 'bg-amber-50', text: 'text-amber-600', label: 'Pending' },
+      refunded: { bg: 'bg-red-50', text: 'text-red-600', label: 'Refunded' },
+      partially_refunded: { bg: 'bg-orange-50', text: 'text-orange-600', label: 'Partially Refunded' },
     };
-    const style = styles[status];
+    const style = styles[status] || { bg: 'bg-gray-50', text: 'text-gray-600', label: status };
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium ${style.bg} ${style.text}`}>
         {style.label}
@@ -231,15 +176,34 @@ export default function OrdersPage() {
     );
   };
 
-  const getPayoutStatusBadge = (status: PayoutStatus, daysLeft?: number) => {
-    const styles: Record<PayoutStatus, { bg: string; text: string; label: string }> = {
+  const getPaymentStatusBadge = (status?: string) => {
+    if (!status) return <span className="text-sm text-gray-400">-</span>;
+    
+    const styles: Record<string, { bg: string; text: string; label: string }> = {
+      paid: { bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'Paid' },
+      pending: { bg: 'bg-amber-50', text: 'text-amber-600', label: 'Pending' },
+      refunded: { bg: 'bg-red-50', text: 'text-red-600', label: 'Refunded' },
+      partially_refunded: { bg: 'bg-orange-50', text: 'text-orange-600', label: 'Partially Refunded' },
+    };
+    const style = styles[status] || { bg: 'bg-gray-50', text: 'text-gray-600', label: status };
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium ${style.bg} ${style.text}`}>
+        {style.label}
+      </span>
+    );
+  };
+
+  const getPayoutStatusBadge = (status?: string, daysLeft?: number) => {
+    if (!status) return <span className="text-sm text-gray-400">-</span>;
+    
+    const styles: Record<string, { bg: string; text: string; label: string }> = {
       self_referral: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Self referral' },
       cancelled: { bg: 'bg-red-50', text: 'text-red-600', label: 'Cancelled' },
       days_left: { bg: 'bg-blue-50', text: 'text-blue-600', label: `${daysLeft || 7} days left` },
       completed: { bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'Completed' },
       pending: { bg: 'bg-amber-50', text: 'text-amber-600', label: 'Pending' },
     };
-    const style = styles[status];
+    const style = styles[status] || { bg: 'bg-gray-50', text: 'text-gray-600', label: status };
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium ${style.bg} ${style.text}`}>
         {style.label}
@@ -354,31 +318,38 @@ export default function OrdersPage() {
                   orders.map((order, index) => (
                     <tr 
                       key={order.id || index} 
-                      className="border-b border-gray-50 hover:bg-gray-50"
+                      className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer"
+                      onClick={() => {
+                        setSelectedOrder(order);
+                        setShowOrderModal(true);
+                      }}
                     >
                       <td className="py-4 px-6 text-sm text-gray-600">
                         {formatDate(order.createdAt)}
                       </td>
                       <td className="py-4 px-6 text-sm text-gray-900 font-mono">
-                        {order.orderNumber || 'MF123456789012'}
+                        {order.orderNumber || order.orderId}
                       </td>
                       <td className="py-4 px-6 text-sm text-gray-900">
-                        {order.customerName || 'Aromal Sula'}
+                        {order.customerEmail || '-'}
+                        {order.customerId && (
+                          <span className="text-xs text-gray-500 block">{order.customerId}</span>
+                        )}
                       </td>
                       <td className="py-4 px-6">
-                        {getOrderStatusBadge(order.orderStatus || 'delivered')}
+                        {getOrderStatusBadge()}
                       </td>
                       <td className="py-4 px-6 text-sm text-gray-600">
-                        {order.discountCode || order.appliedCoupons?.[0] || 'SUJAL'}
+                        {order.appliedCoupons?.[0] || order.attributedCouponCode || '-'}
                       </td>
                       <td className="py-4 px-6 text-sm text-gray-900">
-                        {formatCurrency(order.totalAmount)}
+                        {order.totalAmount ? formatCurrency(order.totalAmount) : '-'}
                       </td>
                       <td className="py-4 px-6 text-sm text-gray-900">
-                        {formatCurrency(order.reward || 2454.90)}
+                        {order.commissionAmount ? formatCurrency(order.commissionAmount) : '-'}
                       </td>
                       <td className="py-4 px-6">
-                        {getPayoutStatusBadge(order.payoutStatus || 'completed', order.payoutDaysLeft)}
+                        {getPayoutStatusBadge()}
                       </td>
                     </tr>
                   ))
@@ -420,6 +391,294 @@ export default function OrdersPage() {
         onApply={handleApplyFilters}
         onReset={handleResetFilters}
       />
+
+      {/* Order Details Modal */}
+      {showOrderModal && selectedOrder && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-xl">
+            {/* Header */}
+            <div className="flex items-center justify-between p-2 px-6 border-b border-gray-100">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Order Details</h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowOrderModal(false);
+                  setSelectedOrder(null);
+                }}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="grid grid-cols-2 gap-6 mb-6">
+                {/* Order Information */}
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500 mb-3">Order Information</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Order Date:</span>
+                        <span className="text-sm font-medium text-gray-900">
+                          {formatDate(selectedOrder.createdAt)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Order ID:</span>
+                        <span className="text-sm font-medium text-gray-900 font-mono">
+                          {selectedOrder.orderId}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Order Number:</span>
+                        <span className="text-sm font-medium text-gray-900 font-mono">
+                          {selectedOrder.orderNumber || '-'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Payment Status:</span>
+                        <span className="text-sm font-medium text-gray-900">
+                          {getPaymentStatusBadge(selectedOrder.paymentStatus)}
+                        </span>
+                      </div>
+                      {selectedOrder.pixelEventId && (
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">Pixel Event ID:</span>
+                          <span className="text-sm font-medium text-gray-900 font-mono">
+                            {selectedOrder.pixelEventId}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Attribution Information */}
+                  {(selectedOrder.attributedCreatorId || selectedOrder.attributionType || selectedOrder.referralCode) && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500 mb-3">Attribution</h3>
+                      <div className="space-y-2">
+                        {selectedOrder.attributedCreatorId && (
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Creator ID:</span>
+                            <span className="text-sm font-medium text-gray-900 font-mono">
+                              {selectedOrder.attributedCreatorId}
+                            </span>
+                          </div>
+                        )}
+                        {selectedOrder.attributionType && (
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Attribution Type:</span>
+                            <span className="text-sm font-medium text-gray-900">
+                              {selectedOrder.attributionType}
+                            </span>
+                          </div>
+                        )}
+                        {selectedOrder.referralCode && (
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Referral Code:</span>
+                            <span className="text-sm font-medium text-gray-900 font-mono">
+                              {selectedOrder.referralCode}
+                            </span>
+                          </div>
+                        )}
+                        {selectedOrder.attributedCouponCode && (
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Coupon Code:</span>
+                            <span className="text-sm font-medium text-gray-900 font-mono">
+                              {selectedOrder.attributedCouponCode}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Commission Information */}
+                  {(selectedOrder.commissionAmount || selectedOrder.commissionRateValue) && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500 mb-3">Commission</h3>
+                      <div className="space-y-2">
+                        {selectedOrder.commissionAmount && (
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Commission Amount:</span>
+                            <span className="text-sm font-medium text-gray-900">
+                              {formatCurrency(selectedOrder.commissionAmount)}
+                            </span>
+                          </div>
+                        )}
+                        {selectedOrder.commissionRateValue && (
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Commission Rate:</span>
+                            <span className="text-sm font-medium text-gray-900">
+                              {selectedOrder.commissionRateValue}
+                              {selectedOrder.commissionRateType === 'percentage' ? '%' : ''}
+                            </span>
+                          </div>
+                        )}
+                        {selectedOrder.commissionBasis && (
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Commission Basis:</span>
+                            <span className="text-sm font-medium text-gray-900">
+                              {selectedOrder.commissionBasis.replace(/_/g, ' ')}
+                            </span>
+                          </div>
+                        )}
+                        {selectedOrder.commissionSource && (
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Commission Source:</span>
+                            <span className="text-sm font-medium text-gray-900">
+                              {selectedOrder.commissionSource}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Customer Information */}
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500 mb-3">Customer Information</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Customer ID:</span>
+                        <span className="text-sm font-medium text-gray-900 font-mono">
+                          {selectedOrder.customerId}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Email:</span>
+                        <span className="text-sm font-medium text-gray-900">
+                          {selectedOrder.customerEmail}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Payment Information */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500 mb-3">Payment Details</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Payment Method:</span>
+                        <span className="text-sm font-medium text-gray-900">
+                          {selectedOrder.paymentMethod || '-'}
+                        </span>
+                      </div>
+                      {selectedOrder.refundedAmount && (
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">Refunded Amount:</span>
+                          <span className="text-sm font-medium text-gray-900">
+                            {formatCurrency(selectedOrder.refundedAmount)}
+                          </span>
+                        </div>
+                      )}
+                      {selectedOrder.refundReason && (
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">Refund Reason:</span>
+                          <span className="text-sm font-medium text-gray-900">
+                            {selectedOrder.refundReason}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Applied Coupons */}
+                  {selectedOrder.appliedCoupons && selectedOrder.appliedCoupons.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500 mb-3">Applied Coupons</h3>
+                      <div className="space-y-1">
+                        {selectedOrder.appliedCoupons.map((coupon, idx) => (
+                          <div key={idx} className="text-sm font-medium text-gray-900 font-mono">
+                            {coupon}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Order Items */}
+              {selectedOrder.lineItems && selectedOrder.lineItems.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="text-sm font-medium text-gray-500 mb-3">Order Items</h3>
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="text-left py-3 px-4 text-xs font-medium text-gray-500">Product</th>
+                          <th className="text-right py-3 px-4 text-xs font-medium text-gray-500">Quantity</th>
+                          <th className="text-right py-3 px-4 text-xs font-medium text-gray-500">Price</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {selectedOrder.lineItems.map((item, idx) => (
+                          <tr key={idx}>
+                            <td className="py-3 px-4 text-sm text-gray-900">
+                              {item.title || item.productId || `Item ${idx + 1}`}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-600 text-right">
+                              {item.quantity || '-'}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-900 text-right">
+                              {item.price ? formatCurrency(item.price) : '-'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Order Summary */}
+              <div className="mt-6 border-t border-gray-200 pt-6">
+                <h3 className="text-sm font-medium text-gray-500 mb-3">Order Summary</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Subtotal:</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {formatCurrency(selectedOrder.subtotalAmount)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Shipping:</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {formatCurrency(selectedOrder.shippingAmount)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Tax:</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {formatCurrency(selectedOrder.taxAmount)}
+                    </span>
+                  </div>
+                  {parseFloat(selectedOrder.discountsTotal) > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Discounts:</span>
+                      <span className="text-sm font-medium text-red-600">
+                        -{formatCurrency(selectedOrder.discountsTotal)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between pt-2 border-t border-gray-200">
+                    <span className="text-sm font-semibold text-gray-900">Total:</span>
+                    <span className="text-sm font-semibold text-gray-900">
+                      {formatCurrency(selectedOrder.totalAmount)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }
