@@ -184,8 +184,10 @@ function DataRow({
         <ProgressBar percentage={barWidth} />
       </div>
       <div className="text-right flex-shrink-0">
-        <span className="text-sm font-medium text-gray-900">₹{(value / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).slice(0, 8)}..71</span>
-        <span className="text-xs text-emerald-500 ml-2">{percentage}% <TrendingUp className="h-2.5 w-2.5 inline" /></span>
+        <span className="text-sm font-medium text-gray-900">₹{value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+        {percentage > 0 && (
+          <span className="text-xs text-emerald-500 ml-2">{percentage}% <TrendingUp className="h-2.5 w-2.5 inline" /></span>
+        )}
       </div>
     </div>
   );
@@ -328,8 +330,10 @@ function AffiliateRow({
       <div className="flex items-center gap-3">
         <ProgressBar percentage={barWidth} />
         <div className="text-right flex-shrink-0 min-w-[140px]">
-          <span className="text-sm font-medium text-gray-900">₹{(value / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).slice(0, 8)}..71</span>
-          <span className="text-xs text-emerald-500 ml-2">{percentage}% <TrendingUp className="h-2.5 w-2.5 inline" /></span>
+          <span className="text-sm font-medium text-gray-900">₹{value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          {percentage > 0 && (
+            <span className="text-xs text-emerald-500 ml-2">{percentage}% <TrendingUp className="h-2.5 w-2.5 inline" /></span>
+          )}
         </div>
       </div>
     </div>
@@ -337,6 +341,17 @@ function AffiliateRow({
 }
 
 export default function DashboardPage() {
+  // Default to last 24 hours
+  const getDefaultDates = () => {
+    const now = new Date();
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    return {
+      startDate: yesterday.toISOString().split('T')[0],
+      endDate: now.toISOString().split('T')[0],
+    };
+  };
+
+  const defaultDates = getDefaultDates();
   const defaultStats: DashboardStats = {
     totalRevenue: 0,
     totalOrders: 0,
@@ -352,17 +367,50 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats>(defaultStats);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
-  const [selectedFilter, setSelectedFilter] = useState<'30days' | 'custom'>('30days');
+  const [selectedFilter, setSelectedFilter] = useState<'24hours' | 'custom'>('24hours');
+  const [startDate, setStartDate] = useState<string>(defaultDates.startDate);
+  const [endDate, setEndDate] = useState<string>(defaultDates.endDate);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     fetchStats();
   }, []);
 
-  const fetchStats = async () => {
+  const fetchStats = async (customStartDate?: string, customEndDate?: string, force24Hours?: boolean) => {
     try {
       setLoading(true);
-      const response = await apiClient.get<{ success: boolean; data: DashboardStats }>('/dashboard/stats');
+      const params = new URLSearchParams();
+      
+      // Convert date strings to ISO format with time
+      let startDateISO: string;
+      let endDateISO: string;
+      
+      if (force24Hours) {
+        // Force 24 hours mode
+        const now = new Date();
+        endDateISO = now.toISOString();
+        const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        startDateISO = yesterday.toISOString();
+      } else if (customStartDate || selectedFilter === 'custom') {
+        const start = customStartDate || startDate;
+        const end = customEndDate || endDate;
+        // Convert date string to ISO format (start of day for start, end of day for end)
+        startDateISO = new Date(start + 'T00:00:00.000Z').toISOString();
+        endDateISO = new Date(end + 'T23:59:59.999Z').toISOString();
+      } else {
+        // Default to 24 hours
+        const now = new Date();
+        endDateISO = now.toISOString();
+        const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        startDateISO = yesterday.toISOString();
+      }
+      
+      params.append('startDate', startDateISO);
+      params.append('endDate', endDateISO);
+      
+      const url = `/dashboard/stats?${params.toString()}`;
+      const response = await apiClient.get<{ success: boolean; data: DashboardStats }>(url);
       if (response.success && response.data) {
         setStats(response.data);
       }
@@ -372,6 +420,39 @@ export default function DashboardPage() {
       setLoading(false);
     }
   };
+
+  const handle24HoursClick = () => {
+    const dates = getDefaultDates();
+    setStartDate(dates.startDate);
+    setEndDate(dates.endDate);
+    setSelectedFilter('24hours');
+    setShowDatePicker(false);
+    // Force 24 hours mode to avoid stale state issues
+    fetchStats(undefined, undefined, true);
+  };
+
+  const handleCustomDateApply = () => {
+    if (startDate && endDate && new Date(startDate) <= new Date(endDate)) {
+      setSelectedFilter('custom');
+      setShowDatePicker(false);
+      fetchStats(startDate, endDate);
+    }
+  };
+
+  // Close date picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (showDatePicker && !target.closest('.date-picker-container')) {
+        setShowDatePicker(false);
+      }
+    };
+    
+    if (showDatePicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showDatePicker]);
 
   const getCurrentTime = () => {
     const now = new Date();
@@ -385,29 +466,82 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 relative">
               <button 
-                onClick={() => setSelectedFilter('30days')}
+                onClick={handle24HoursClick}
                 className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
-                  selectedFilter === '30days' 
+                  selectedFilter === '24hours' 
                     ? 'bg-white border-gray-300 text-gray-900' 
                     : 'bg-transparent border-gray-200 text-gray-500 hover:bg-white'
                 }`}
               >
                 <Calendar className="h-3.5 w-3.5 inline mr-1.5" />
-                Last 30 days
+                Last 24 hours
               </button>
-              <button
-                onClick={() => setSelectedFilter('custom')}
-                className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
-                  selectedFilter === 'custom' 
-                    ? 'bg-white border-gray-300 text-gray-900' 
-                    : 'bg-transparent border-gray-200 text-gray-500 hover:bg-white'
-                }`}
-              >
-                <Calendar className="h-3.5 w-3.5 inline mr-1.5" />
-                Aug 31-Sep30,2025
-              </button>
+              <div className="relative date-picker-container">
+                <button
+                  onClick={() => setShowDatePicker(!showDatePicker)}
+                  className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                    selectedFilter === 'custom' 
+                      ? 'bg-white border-gray-300 text-gray-900' 
+                      : 'bg-transparent border-gray-200 text-gray-500 hover:bg-white'
+                  }`}
+                >
+                  <Calendar className="h-3.5 w-3.5 inline mr-1.5" />
+                  {selectedFilter === 'custom' 
+                    ? `${startDate} - ${endDate}`
+                    : 'Custom Range'
+                  }
+                </button>
+                {showDatePicker && (
+                  <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-4 z-50 min-w-[320px]">
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Start Date
+                        </label>
+                        <input
+                          type="date"
+                          value={startDate}
+                          onChange={(e) => setStartDate(e.target.value)}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EAC312] focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          End Date
+                        </label>
+                        <input
+                          type="date"
+                          value={endDate}
+                          onChange={(e) => setEndDate(e.target.value)}
+                          min={startDate}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EAC312] focus:border-transparent"
+                        />
+                      </div>
+                      <div className="flex gap-2 pt-2">
+                        <button
+                          onClick={handleCustomDateApply}
+                          className="flex-1 px-3 py-2 text-sm bg-[#EAC312] text-gray-900 rounded-lg font-medium hover:bg-[#d4b010] transition-colors"
+                        >
+                          Apply
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowDatePicker(false);
+                            const dates = getDefaultDates();
+                            setStartDate(dates.startDate);
+                            setEndDate(dates.endDate);
+                          }}
+                          className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           <div className="text-sm text-gray-500">
@@ -425,26 +559,26 @@ export default function DashboardPage() {
             <div className="grid grid-cols-4 gap-4 mb-6">
               <StatCard 
                 title="Total Revenue" 
-                value={`₹${mockData.totalRevenue.toLocaleString('en-IN')}`}
-                change={24}
+                value={`₹${stats.totalRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                change={0}
                 icon={DollarSign}
               />
               <StatCard 
                 title="Total Orders" 
-                value={mockData.totalOrders.toLocaleString('en-IN')}
-                change={24}
+                value={stats.totalOrders.toLocaleString('en-IN')}
+                change={0}
                 icon={ShoppingCart}
               />
               <StatCard 
-                title="Sessions" 
-                value={mockData.sessions.toLocaleString('en-IN')}
-                change={24}
+                title="Average Order Value" 
+                value={`₹${stats.averageOrderValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                change={0}
                 icon={FolderOpen}
               />
               <StatCard 
-                title="Active Affiliates" 
-                value={mockData.activeAffiliates.toLocaleString('en-IN')}
-                change={24}
+                title="Top Affiliates" 
+                value={(stats.topAffiliates?.length || 0).toString()}
+                change={0}
                 icon={Users}
               />
             </div>
@@ -456,19 +590,33 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-2 text-gray-700 font-medium mb-4">
                   <Share2 className="h-4 w-4" />
                   <span>Total sales by social channels</span>
-                    </div>
+                </div>
                 <div className="space-y-1">
-                  {mockData.socialChannels.map((channel, index) => (
-                    <DataRow 
-                      key={channel.name}
-                      name={channel.name}
-                      value={channel.value}
-                      percentage={channel.percentage}
-                      barWidth={100 - index * 15}
-                    />
-                  ))}
-                    </div>
-                  </div>
+                  {stats.salesBySocialChannel && Object.keys(stats.salesBySocialChannel).length > 0 ? (
+                    (() => {
+                      const channels = Object.entries(stats.salesBySocialChannel)
+                        .map(([key, value]: [string, any]) => ({
+                          key,
+                          name: key,
+                          sales: value.sales || value || 0,
+                        }))
+                        .sort((a, b) => b.sales - a.sales);
+                      const maxSales = channels.length > 0 ? Math.max(...channels.map(c => c.sales)) : 1;
+                      return channels.map((channel, index) => (
+                        <DataRow 
+                          key={channel.key}
+                          name={channel.name}
+                          value={channel.sales}
+                          percentage={0}
+                          barWidth={maxSales > 0 ? (channel.sales / maxSales) * 100 : 0}
+                        />
+                      ));
+                    })()
+                  ) : (
+                    <div className="text-sm text-gray-500 py-4 text-center">No social channel data available</div>
+                  )}
+                </div>
+              </div>
 
               {/* Sales by Product */}
               <div className="bg-white rounded-xl p-5 shadow-sm">
@@ -477,17 +625,32 @@ export default function DashboardPage() {
                   <span>Total sales by product</span>
                 </div>
                 <div className="space-y-1">
-                  {mockData.products.map((product, index) => (
-                    <DataRow 
-                      key={product.name}
-                      name={product.name}
-                      value={product.value}
-                      percentage={product.percentage}
-                      barWidth={100 - index * 10}
-                      image={product.image}
-                    />
-            ))}
-          </div>
+                  {stats.salesByProduct && Object.keys(stats.salesByProduct).length > 0 ? (
+                    (() => {
+                      const products = Object.entries(stats.salesByProduct)
+                        .map(([key, product]: [string, any]) => ({
+                          key,
+                          name: product.name || `Product ${key}`,
+                          sales: product.sales || 0,
+                        }))
+                        .sort((a, b) => b.sales - a.sales)
+                        .slice(0, 5);
+                      const maxSales = products.length > 0 ? Math.max(...products.map(p => p.sales)) : 1;
+                      return products.map((product, index) => (
+                        <DataRow 
+                          key={product.key}
+                          name={product.name}
+                          value={product.sales}
+                          percentage={0}
+                          barWidth={maxSales > 0 ? (product.sales / maxSales) * 100 : 0}
+                          image={undefined}
+                        />
+                      ));
+                    })()
+                  ) : (
+                    <div className="text-sm text-gray-500 py-4 text-center">No product data available</div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -500,10 +663,12 @@ export default function DashboardPage() {
                   <span>Referral conversion rate</span>
                 </div>
                 <div className="flex items-end gap-2 mb-4">
-                  <span className="text-3xl font-semibold text-gray-900">{mockData.conversionRate}%</span>
-                  <span className="text-sm text-red-500 mb-1">{mockData.conversionChange}% ↓</span>
+                  <span className="text-3xl font-semibold text-gray-900">{stats.conversionRate.toFixed(2)}%</span>
+                  <span className="text-sm text-gray-500 mb-1">N/A</span>
                 </div>
-                <ConversionChart data={mockData.conversionData} />
+                <div className="h-40 flex items-center justify-center text-gray-400 text-sm">
+                  Chart data not available
+                </div>
               </div>
 
               {/* Total Sales Breakdown */}
@@ -513,14 +678,13 @@ export default function DashboardPage() {
                   <span>Total sales breakdown</span>
                 </div>
                 <div className="space-y-3">
-                  {[
-                    { label: 'Gross Sales', value: mockData.salesBreakdown.grossSales, positive: true },
-                    { label: 'Orders', value: mockData.salesBreakdown.orders, positive: true },
-                    { label: 'Discounts', value: mockData.salesBreakdown.discounts, positive: false },
-                    { label: 'Payouts', value: mockData.salesBreakdown.payouts, positive: false },
-                    { label: 'Returns', value: mockData.salesBreakdown.returns, positive: null },
-                    { label: 'Taxes', value: mockData.salesBreakdown.taxes, positive: true },
-                    { label: 'Total Sales', value: mockData.salesBreakdown.totalSales, positive: true, bold: true },
+                  {stats.salesBreakdown ? [
+                    { label: 'Gross Sales', value: stats.salesBreakdown.grossSales, positive: true },
+                    { label: 'Discounts', value: stats.salesBreakdown.discounts, positive: false },
+                    { label: 'Taxes', value: stats.salesBreakdown.taxes, positive: true },
+                    { label: 'Returns', value: stats.salesBreakdown.returns, positive: null },
+                    { label: 'Payouts', value: stats.salesBreakdown.payouts, positive: false },
+                    { label: 'Total Sales', value: stats.salesBreakdown.totalSales, positive: true, bold: true },
                   ].map((item) => (
                     <div key={item.label} className="flex justify-between items-center">
                       <span className={`text-sm ${item.bold ? 'font-medium text-gray-900' : 'text-gray-600'}`}>
@@ -534,16 +698,15 @@ export default function DashboardPage() {
                               : `₹${item.value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                           )}
                         </span>
-                        {item.positive !== null && (
-                          <span className="text-xs text-emerald-500">24% <TrendingUp className="h-2.5 w-2.5 inline" /></span>
-                        )}
                         {item.positive === null && <span className="text-xs text-gray-400">-</span>}
-                  </div>
-                  </div>
-                  ))}
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="text-sm text-gray-500 py-4 text-center">No sales breakdown data available</div>
+                  )}
                 </div>
               </div>
-                  </div>
+            </div>
 
             {/* Top Affiliates Row */}
             <div className="grid grid-cols-2 gap-4">
@@ -552,39 +715,55 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-2 text-gray-700 font-medium mb-4">
                   <Share2 className="h-4 w-4" />
                   <span>Sales by affiliates (Top 5)</span>
-                  </div>
-                <div className="space-y-1">
-                  {mockData.topAffiliates.map((affiliate, index) => (
-                    <AffiliateRow 
-                      key={affiliate.name}
-                      name={affiliate.name}
-                      value={affiliate.value}
-                      percentage={affiliate.percentage}
-                      barWidth={100 - index * 15}
-                    />
-                  ))}
                 </div>
-                  </div>
+                <div className="space-y-1">
+                  {stats.topAffiliates && stats.topAffiliates.length > 0 ? (
+                    stats.topAffiliates.slice(0, 5).map((affiliate, index) => {
+                      const maxRevenue = Math.max(...stats.topAffiliates!.map(a => a.revenue || 0));
+                      const barWidth = maxRevenue > 0 ? (affiliate.revenue / maxRevenue) * 100 : 0;
+                      return (
+                        <AffiliateRow 
+                          key={affiliate.id}
+                          name={affiliate.name}
+                          value={affiliate.revenue || 0}
+                          percentage={0}
+                          barWidth={barWidth}
+                        />
+                      );
+                    })
+                  ) : (
+                    <div className="text-sm text-gray-500 py-4 text-center">No affiliate data available</div>
+                  )}
+                </div>
+              </div>
 
               {/* Sales by Affiliate Managers */}
               <div className="bg-white rounded-xl p-5 shadow-sm">
                 <div className="flex items-center gap-2 text-gray-700 font-medium mb-4">
                   <Share2 className="h-4 w-4" />
                   <span>Sales by affiliate managers (Top 5)</span>
-                  </div>
+                </div>
                 <div className="space-y-1">
-                  {mockData.topManagers.map((manager, index) => (
-                    <AffiliateRow 
-                      key={manager.name}
-                      name={manager.name}
-                      value={manager.value}
-                      percentage={manager.percentage}
-                      barWidth={100 - index * 15}
-                    />
-                  ))}
+                  {stats.topManagers && stats.topManagers.length > 0 ? (
+                    stats.topManagers.slice(0, 5).map((manager: any, index) => {
+                      const maxValue = Math.max(...stats.topManagers!.map((m: any) => m.revenue || m.value || 0));
+                      const barWidth = maxValue > 0 ? ((manager.revenue || manager.value || 0) / maxValue) * 100 : 0;
+                      return (
+                        <AffiliateRow 
+                          key={manager.id || index}
+                          name={manager.name || 'Unknown Manager'}
+                          value={manager.revenue || manager.value || 0}
+                          percentage={0}
+                          barWidth={barWidth}
+                        />
+                      );
+                    })
+                  ) : (
+                    <div className="text-sm text-gray-500 py-4 text-center">No manager data available</div>
+                  )}
                 </div>
               </div>
-          </div>
+            </div>
           </>
         )}
       </div>

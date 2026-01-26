@@ -5,43 +5,77 @@ import { fetchBackend, handleApiError } from '@/lib/server-utils';
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
+    let startDate = searchParams.get('startDate');
+    let endDate = searchParams.get('endDate');
+    const creatorId = searchParams.get('creatorId') || '';
 
-    // Build query parameters for backend API
-    const params = new URLSearchParams();
-    if (startDate) params.append('startDate', startDate);
-    if (endDate) params.append('endDate', endDate);
+    // Default to last 24 hours if dates are not provided
+    if (!startDate || !endDate) {
+      const now = new Date();
+      endDate = now.toISOString();
+      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      startDate = yesterday.toISOString();
+    }
 
-    // Make authenticated request to backend API
-    // The fetchBackend utility automatically includes the idToken from cookies
-    const endpoint = `/api/dashboard/stats${params.toString() ? `?${params.toString()}` : ''}`;
+    // Make POST request to analytics API
+    const response = await fetchBackend('/getAnalytics', {
+      method: 'POST',
+      body: JSON.stringify({
+        startDate,
+        endDate,
+        creatorId,
+      }),
+    });
+
+    if (!response.ok) {
+      return handleApiError(new Error('Failed to fetch analytics from backend'), response);
+    }
+
+    const analyticsData = await response.json();
     
-    // For now, using mock data since we don't have the actual backend endpoint
-    // Replace this with: const response = await fetchBackend(endpoint);
-    // when the backend endpoint is available
-    const mockStats = {
-      totalRevenue: 125000,
-      totalOrders: 1250,
-      totalCreators: 150,
-      activeCreators: 120,
-      pendingCreators: 15,
-      totalCoupons: 85,
-      activeCoupons: 75,
-      conversionRate: 3.5,
-      averageOrderValue: 100,
-    };
+    // Map the analytics response to DashboardStats format
+    const analytics = analyticsData.analytics || {};
+    const salesBreakdown = analytics.salesBreakdown || {};
+    
+    // Calculate average order value
+    const avgOrderValue = analytics.totalOrders > 0 
+      ? analytics.totalRevenue / analytics.totalOrders 
+      : 0;
 
-    // Example of how to use fetchBackend when the endpoint is ready:
-    // const response = await fetchBackend(endpoint);
-    // if (!response.ok) {
-    //   throw new Error('Failed to fetch stats from backend');
-    // }
-    // const data = await response.json();
+    // Map response to DashboardStats
+    const stats = {
+      totalRevenue: analytics.totalRevenue || 0,
+      totalOrders: analytics.totalOrders || 0,
+      // These fields are not available in analytics API, set to 0
+      totalCreators: 0,
+      activeCreators: 0,
+      pendingCreators: 0,
+      totalCoupons: 0,
+      activeCoupons: 0,
+      conversionRate: 0, // Not available in analytics response
+      averageOrderValue: avgOrderValue,
+      // Include additional analytics data for the dashboard
+      salesBreakdown: {
+        grossSales: salesBreakdown.grossSales || 0,
+        discounts: salesBreakdown.discounts || 0,
+        taxes: salesBreakdown.taxes || 0,
+        returns: salesBreakdown.returns || 0,
+        payouts: salesBreakdown.payouts || 0,
+        totalSales: salesBreakdown.totalSales || 0,
+      },
+      salesBySocialChannel: analytics.salesBySocialChannel || {},
+      salesByProduct: analytics.salesByProduct || {},
+      topAffiliates: analytics.topAffiliates || [],
+      topManagers: analytics.topManagers || [],
+      dateRange: analytics.dateRange || {
+        start: startDate.split('T')[0],
+        end: endDate.split('T')[0],
+      },
+    };
 
     return NextResponse.json({
       success: true,
-      data: mockStats,
+      data: stats,
     });
   } catch (error) {
     return handleApiError(error);

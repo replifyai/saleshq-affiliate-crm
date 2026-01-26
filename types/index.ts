@@ -118,6 +118,33 @@ export interface DashboardStats {
   activeCoupons: number;
   conversionRate: number;
   averageOrderValue: number;
+  // Additional analytics data
+  salesBreakdown?: {
+    grossSales: number;
+    discounts: number;
+    taxes: number;
+    returns: number;
+    payouts: number;
+    totalSales: number;
+  };
+  salesBySocialChannel?: Record<string, any>;
+  salesByProduct?: Record<string, {
+    qty: number;
+    sales: number;
+    name: string;
+  }>;
+  topAffiliates?: Array<{
+    id: string;
+    name: string;
+    orders: number;
+    revenue: number;
+    commission: number;
+  }>;
+  topManagers?: Array<any>;
+  dateRange?: {
+    start: string;
+    end: string;
+  };
 }
 
 export interface PaginationMeta {
