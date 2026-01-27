@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { Suspense, useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { FilterDrawer, FilterOption, FilterValues } from '@/components/ui/FilterDrawer';
@@ -38,7 +38,7 @@ function getTabFromParam(param: string | null): TabType {
   return VALID_TABS.includes(param as TabType) ? (param as TabType) : 'current';
 }
 
-export default function AffiliatesPage() {
+function AffiliatesPageContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -1184,5 +1184,21 @@ export default function AffiliatesPage() {
         onReset={handleResetFilters}
       />
     </DashboardLayout>
+  );
+}
+
+export default function AffiliatesPage() {
+  return (
+    <Suspense
+      fallback={
+        <DashboardLayout>
+          <div className="flex justify-center items-center min-h-[50vh]">
+            <div className="animate-spin rounded-full h-10 w-10 border-2 border-gray-200 border-t-[#EAC312]" />
+          </div>
+        </DashboardLayout>
+      }
+    >
+      <AffiliatesPageContent />
+    </Suspense>
   );
 }
