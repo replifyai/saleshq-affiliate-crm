@@ -1,99 +1,163 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { apiClient } from '@/lib/api-client';
-import { Creator, ExtendedAffiliate, FeaturedCollection, FeaturedProduct } from '@/types';
-import { 
-  ArrowLeft, 
-  DollarSign, 
-  ShoppingCart, 
+import { ExtendedAffiliate, FeaturedCollection, FeaturedProduct } from '@/types';
+import {
+  ArrowLeft,
+  DollarSign,
+  ShoppingCart,
   Wallet,
   Users,
   Instagram,
   Plus,
-  X
+  X,
 } from 'lucide-react';
 
-// Mock data for affiliate profile
-const mockAffiliateData = {
-  totalRevenue: 1743245,
-  totalOrders: 13445,
-  totalCommission: 1743,
-  discountCode: 'SHUBHAM',
-  discountAmount: '10%',
-  commissionAmount: '10%',
-  featuredCollections: [
-    { id: '1', name: 'Car comfort collections', url: 'https://myfrido.com' },
-    { id: '2', name: 'Car comfort collections', url: 'https://myfrido.com' },
-    { id: '3', name: 'Car comfort collections', url: 'https://myfrido.com' },
-  ],
-  featuredProducts: [
-    { id: '1', name: 'Product Name Goes Here', price: 2599, originalPrice: 2599, image: '/products/sock1.jpg' },
-    { id: '2', name: 'Product Name Goes Here', price: 2599, originalPrice: 2599, image: '/products/sock2.jpg' },
-    { id: '3', name: 'Product Name Goes Here', price: 2599, originalPrice: 2599, image: '/products/sock3.jpg' },
-  ],
-};
+// Creator profile from getCreatorProfileForAdmin API
+interface CreatorProfileCoupon {
+  code?: string;
+  value?: { type?: string; percentage?: number; amount?: number };
+  commissionType?: string;
+  commissionValue?: string | number;
+  commissionBasis?: string;
+}
+
+interface CreatorProfile {
+  id: string;
+  name: string;
+  phoneNumber?: string;
+  email?: string;
+  createdAt?: number;
+  approved?: string;
+  socialMediaHandles?: { platform: string; handle: string }[];
+  phoneNumberVerified?: boolean;
+  uniqueReferralCode?: string;
+  approvedBy?: string;
+  approvedAt?: string | null;
+  managedBy?: string;
+  coupons?: CreatorProfileCoupon;
+  completionScore?: { completedCount?: number; leftCount?: number };
+}
+
+// Default date range: last 24 hours
+function getDefaultDateRange() {
+  const now = new Date();
+  const start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  return { startDate: start.toISOString(), endDate: now.toISOString() };
+}
 
 export default function AffiliateProfilePage() {
   const router = useRouter();
   const params = useParams();
-  const affiliateId = params.id as string;
-  
+  const affiliateId = params?.id as string;
+
   const [affiliate, setAffiliate] = useState<ExtendedAffiliate | null>(null);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [showEditOfferModal, setShowEditOfferModal] = useState(false);
   const [showAddCollectionModal, setShowAddCollectionModal] = useState(false);
   const [showAddProductModal, setShowAddProductModal] = useState(false);
-  
-  // Local state for editable data
-  const [collections, setCollections] = useState<FeaturedCollection[]>(mockAffiliateData.featuredCollections);
-  const [products, setProducts] = useState<FeaturedProduct[]>(mockAffiliateData.featuredProducts);
+
+  // Analytics (from getAnalytics with creatorId)
+  const [analytics, setAnalytics] = useState<{
+    totalRevenue: number;
+    totalOrders: number;
+    averageOrderValue: number;
+    topAffiliates?: { id: string; revenue: number; commission: number }[];
+  }>({ totalRevenue: 0, totalOrders: 0, averageOrderValue: 0 });
+
+  // Local state for editable data (featured collections/products not in profile API)
+  const [collections, setCollections] = useState<FeaturedCollection[]>([]);
+  const [products, setProducts] = useState<FeaturedProduct[]>([]);
   const [offerData, setOfferData] = useState({
-    discountCode: mockAffiliateData.discountCode,
-    discountAmount: mockAffiliateData.discountAmount,
-    commissionAmount: mockAffiliateData.commissionAmount,
+    discountCode: '',
+    discountAmount: '',
+    commissionAmount: '',
+    commissionType: 'percentage' as 'percentage' | 'fixed' | string,
   });
 
-  useEffect(() => {
-    setMounted(true);
-    fetchAffiliate();
-  }, [affiliateId]);
-
-  const fetchAffiliate = async () => {
+  const fetchProfileAndAnalytics = useCallback(async () => {
+    if (!affiliateId) return;
     try {
       setLoading(true);
-      // Fetch the affiliate details
-      const response = await apiClient.post<{ success: boolean; data: { items: Creator[] } }>('/creators', {
-        page: 1,
-        pageSize: 100,
-        filters: {},
-        sort: { by: 'createdAt', direction: 'desc' },
-      });
-      
-      if (response.success && response.data) {
-        const found = response.data.items.find(c => c.id === affiliateId);
-        if (found) {
-          setAffiliate({
-            ...found,
-            totalSales: mockAffiliateData.totalRevenue,
-            totalOrders: mockAffiliateData.totalOrders,
-            totalCommission: mockAffiliateData.totalCommission,
-            discountCode: mockAffiliateData.discountCode,
-            discountPercent: 10,
-            reward: 10,
-            managerName: 'Abdal',
-          });
-        }
+      const [profileRes, analyticsRes] = await Promise.all([
+        apiClient.get<{ success: boolean; data: CreatorProfile }>(`/creators/${affiliateId}/profile`),
+        (() => {
+          const { startDate, endDate } = getDefaultDateRange();
+          const q = new URLSearchParams({ creatorId: affiliateId, startDate, endDate });
+          return apiClient.get<{ success: boolean; data: { totalRevenue: number; totalOrders: number; averageOrderValue: number; topAffiliates?: { id: string; revenue: number; commission: number }[] } }>(
+            `/dashboard/stats?${q.toString()}`
+          );
+        })(),
+      ]);
+
+      const d = analyticsRes.success && analyticsRes.data ? analyticsRes.data : null;
+      const topForCreator = d && Array.isArray(d.topAffiliates)
+        ? d.topAffiliates.find((a: { id: string }) => a.id === affiliateId)
+        : undefined;
+      const commission = topForCreator && 'commission' in topForCreator ? (topForCreator as { commission: number }).commission : 0;
+
+      if (d) {
+        setAnalytics({
+          totalRevenue: d.totalRevenue ?? 0,
+          totalOrders: d.totalOrders ?? 0,
+          averageOrderValue: d.averageOrderValue ?? 0,
+          topAffiliates: d.topAffiliates,
+        });
+      }
+
+      if (profileRes.success && profileRes.data) {
+        const c = profileRes.data;
+        const coupon = c.coupons;
+        const discountVal = coupon?.value?.percentage != null
+          ? `${coupon.value.percentage}%`
+          : coupon?.value?.amount != null
+            ? `₹${coupon.value.amount}`
+            : '';
+        setAffiliate({
+          id: c.id,
+          name: c.name,
+          phoneNumber: c.phoneNumber ?? '',
+          email: c.email ?? '',
+          createdAt: c.createdAt ?? 0,
+          approved: (c.approved as 'pending' | 'approved' | 'rejected') ?? 'pending',
+          socialMediaHandles: c.socialMediaHandles ?? [],
+          phoneNumberVerified: c.phoneNumberVerified ?? false,
+          totalSales: d?.totalRevenue ?? 0,
+          totalOrders: d?.totalOrders ?? 0,
+          totalCommission: commission,
+          discountCode: coupon?.code ?? '',
+          discountPercent: coupon?.value?.percentage ?? 0,
+          reward: coupon?.value?.percentage ?? 0,
+          managerName: undefined,
+        });
+        setOfferData({
+          discountCode: coupon?.code ?? '',
+          discountAmount: discountVal,
+          commissionAmount: typeof coupon?.commissionValue === 'string' ? coupon.commissionValue : String(coupon?.commissionValue ?? ''),
+          commissionType: coupon?.commissionType ?? 'percentage',
+        });
+      } else {
+        setAffiliate(null);
       }
     } catch (error) {
-      console.error('Failed to fetch affiliate:', error);
+      console.error('Failed to fetch affiliate profile or analytics:', error);
+      setAffiliate(null);
     } finally {
       setLoading(false);
     }
-  };
+  }, [affiliateId]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    fetchProfileAndAnalytics();
+  }, [fetchProfileAndAnalytics]);
 
   const getCurrentTime = () => {
     const now = new Date();
@@ -253,9 +317,8 @@ export default function AffiliateProfilePage() {
                 </div>
                 <div className="flex items-end gap-2">
                   <span className="text-2xl font-semibold text-gray-900">
-                    ₹{mockAffiliateData.totalRevenue.toLocaleString('en-IN')}
+                    ₹{(affiliate?.totalSales ?? analytics.totalRevenue ?? 0).toLocaleString('en-IN')}
                   </span>
-                  <span className="text-sm text-emerald-500 mb-1">24% ↑</span>
                 </div>
               </div>
               
@@ -266,9 +329,8 @@ export default function AffiliateProfilePage() {
                 </div>
                 <div className="flex items-end gap-2">
                   <span className="text-2xl font-semibold text-gray-900">
-                    {mockAffiliateData.totalOrders.toLocaleString('en-IN')}
+                    {(affiliate?.totalOrders ?? analytics.totalOrders ?? 0).toLocaleString('en-IN')}
                   </span>
-                  <span className="text-sm text-emerald-500 mb-1">24% ↑</span>
                 </div>
               </div>
               
@@ -279,9 +341,8 @@ export default function AffiliateProfilePage() {
                 </div>
                 <div className="flex items-end gap-2">
                   <span className="text-2xl font-semibold text-gray-900">
-                    ₹{mockAffiliateData.totalCommission.toLocaleString('en-IN')}
+                    ₹{(affiliate?.totalCommission ?? 0).toLocaleString('en-IN')}
                   </span>
-                  <span className="text-sm text-emerald-500 mb-1">24% ↑</span>
                 </div>
               </div>
             </div>
@@ -308,8 +369,12 @@ export default function AffiliateProfilePage() {
                   <p className="text-lg font-medium text-gray-900 mt-1">{offerData.discountAmount}</p>
                 </div>
                 <div className="border border-gray-200 rounded-lg p-4">
-                  <label className="text-xs text-gray-500">Commission amount</label>
-                  <p className="text-lg font-medium text-gray-900 mt-1">{offerData.commissionAmount}</p>
+                  <label className="text-xs text-gray-500">Commission</label>
+                  <p className="text-lg font-medium text-gray-900 mt-1">
+                    {offerData.commissionType === 'percentage'
+                      ? `${offerData.commissionAmount}%`
+                      : formatCurrency(Number(offerData.commissionAmount) || 0)}
+                  </p>
                 </div>
               </div>
             </div>

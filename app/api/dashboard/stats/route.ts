@@ -28,7 +28,32 @@ export async function GET(request: NextRequest) {
     });
 
     if (!response.ok) {
-      return handleApiError(new Error('Failed to fetch analytics from backend'), response);
+      // Read error body for logging and user feedback
+      let errorMessage = `Backend returned ${response.status} ${response.statusText}`;
+      try {
+        const text = await response.text();
+        if (text) {
+          try {
+            const parsed = JSON.parse(text) as Record<string, unknown>;
+            const msg =
+              typeof parsed?.message === 'string'
+                ? parsed.message
+                : typeof parsed?.error === 'string'
+                  ? parsed.error
+                  : text.slice(0, 300);
+            errorMessage = msg;
+          } catch {
+            errorMessage = text.slice(0, 300);
+          }
+        }
+      } catch (_) {
+        // ignore
+      }
+      console.error('Analytics API error:', response.status, errorMessage);
+      return NextResponse.json(
+        { success: false, error: errorMessage },
+        { status: response.status }
+      );
     }
 
     const analyticsData = await response.json();

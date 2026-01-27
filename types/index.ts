@@ -390,5 +390,6 @@ export interface NewManagerData {
   name: string;
   email: string;
   phone: string;
+  password?: string;
 }
 

@@ -1,19 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, useCallback } from 'react';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { FilterDrawer, FilterOption, FilterValues } from '@/components/ui/FilterDrawer';
 import { apiClient } from '@/lib/api-client';
-import { Creator, CreatorsResponse, CreatorStatus, CommissionData, CommissionBasis, ExtendedAffiliate, AffiliateManager, InviteAffiliateData, AcceptAffiliateData, NewManagerData } from '@/types';
+import { Creator, CreatorsResponse, CreatorStatus, CommissionData, CommissionBasis, ExtendedAffiliate, InviteAffiliateData, AcceptAffiliateData, NewManagerData } from '@/types';
 import { Search, ChevronLeft, ChevronRight, X, Instagram, SlidersHorizontal, UserPlus } from 'lucide-react';
 
-// Mock data for affiliate managers
-const mockManagers: AffiliateManager[] = [
-  { id: '1', name: 'Abdal', email: 'abdal@myfrido.com', phone: '+91 9876543210', totalAffiliates: 25, totalSales: 3975471, createdAt: Date.now() },
-  { id: '2', name: 'Gautami Chati', email: 'gautami@myfrido.com', phone: '+91 9876543211', totalAffiliates: 18, totalSales: 2875471, createdAt: Date.now() },
-  { id: '3', name: 'Parag Swami', email: 'parag@myfrido.com', phone: '+91 9876543212', totalAffiliates: 15, totalSales: 1975471, createdAt: Date.now() },
-];
+// Admin/manager from getAllAdmins API (id, name, email, createdAt)
+interface AdminItem {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: number;
+}
 
 // Extended mock data for affiliates
 const extendAffiliate = (creator: Creator, index: number): ExtendedAffiliate => ({
@@ -30,16 +31,39 @@ const extendAffiliate = (creator: Creator, index: number): ExtendedAffiliate => 
 
 type TabType = 'current' | 'pending' | 'managers';
 
+const TAB_PARAM = 'tab';
+const VALID_TABS: TabType[] = ['current', 'pending', 'managers'];
+
+function getTabFromParam(param: string | null): TabType {
+  return VALID_TABS.includes(param as TabType) ? (param as TabType) : 'current';
+}
+
 export default function AffiliatesPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<TabType>('current');
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const tabFromUrl = getTabFromParam(searchParams.get(TAB_PARAM));
+  const [activeTab, setActiveTab] = useState<TabType>(tabFromUrl);
   const [affiliates, setAffiliates] = useState<ExtendedAffiliate[]>([]);
   const [pendingAffiliates, setPendingAffiliates] = useState<ExtendedAffiliate[]>([]);
-  const [managers, setManagers] = useState<AffiliateManager[]>(mockManagers);
-  const [loading, setLoading] = useState(true);
+  const [managers, setManagers] = useState<AdminItem[]>([]);
+  const [assignManagersList, setAssignManagersList] = useState<{ id: string; name: string }[]>([]);
+  const [assignManagersLoading, setAssignManagersLoading] = useState(false);
+  const [loading, setLoading] = useState(tabFromUrl === 'current' || tabFromUrl === 'pending');
+  const [managersLoading, setManagersLoading] = useState(tabFromUrl === 'managers');
   const [pagination, setPagination] = useState<CreatorsResponse | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(20);
+  const [managersPage, setManagersPage] = useState(1);
+  const [managersPageSize] = useState(20);
+  const [managersPagination, setManagersPagination] = useState<{
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  }>({ page: 1, pageSize: 20, total: 0, totalPages: 1, hasNextPage: false, hasPrevPage: false });
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [mounted, setMounted] = useState(false);
@@ -80,7 +104,10 @@ export default function AffiliatesPage() {
     name: '',
     email: '',
     phone: '',
+    password: '',
   });
+  const [creatingManager, setCreatingManager] = useState(false);
+  const [createManagerError, setCreateManagerError] = useState<string | null>(null);
 
   // Filter drawer state
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
@@ -149,6 +176,21 @@ export default function AffiliatesPage() {
     setMounted(true);
   }, []);
 
+  // Sync URL -> active tab (handles initial load and back/forward)
+  useEffect(() => {
+    setActiveTab(tabFromUrl);
+  }, [tabFromUrl]);
+
+  const handleTabChange = useCallback(
+    (tab: TabType) => {
+      setActiveTab(tab);
+      const params = new URLSearchParams(searchParams.toString());
+      params.set(TAB_PARAM, tab);
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
+
   // Debounce search input
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -158,16 +200,50 @@ export default function AffiliatesPage() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  useEffect(() => {
-    fetchAffiliates();
-  }, [page, debouncedSearch, activeTab]);
+  const fetchManagers = useCallback(async () => {
+    try {
+      setManagersLoading(true);
+      const response = await apiClient.post<{
+        success: boolean;
+        data: {
+          items: AdminItem[];
+          page: number;
+          pageSize: number;
+          total: number;
+          totalPages: number;
+          hasNextPage: boolean;
+          hasPrevPage: boolean;
+        };
+      }>('/admins', {
+        page: managersPage,
+        pageSize: managersPageSize,
+        sort: { by: 'createdAt', direction: 'asc' },
+      });
+      if (response.success && response.data) {
+        setManagers(response.data.items);
+        setManagersPagination({
+          page: response.data.page,
+          pageSize: response.data.pageSize,
+          total: response.data.total,
+          totalPages: response.data.totalPages,
+          hasNextPage: response.data.hasNextPage,
+          hasPrevPage: response.data.hasPrevPage,
+        });
+      } else {
+        setManagers([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch managers:', error);
+      setManagers([]);
+    } finally {
+      setManagersLoading(false);
+    }
+  }, [managersPage, managersPageSize]);
 
-  const fetchAffiliates = async () => {
+  const fetchCurrentAffiliates = useCallback(async () => {
     try {
       setLoading(true);
-
-      // Fetch approved affiliates for "Current Affiliates" tab
-      const approvedResponse = await apiClient.post<{ success: boolean; data: CreatorsResponse }>('/creators', {
+      const response = await apiClient.post<{ success: boolean; data: CreatorsResponse }>('/creators', {
         page,
         pageSize,
         filters: {
@@ -176,42 +252,87 @@ export default function AffiliatesPage() {
         },
         sort: { by: 'createdAt', direction: 'desc' },
       });
-
-      if (approvedResponse.success && approvedResponse.data) {
-        setAffiliates(approvedResponse.data.items.map((c, i) => extendAffiliate(c, i)));
-        setPagination(approvedResponse.data);
+      if (response.success && response.data) {
+        setAffiliates(response.data.items.map((c, i) => extendAffiliate(c, i)));
+        setPagination(response.data);
+      } else {
+        setAffiliates([]);
       }
+    } catch (error) {
+      console.error('Failed to fetch current affiliates:', error);
+      setAffiliates([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, pageSize, debouncedSearch]);
 
-      // Fetch pending affiliates
+  const fetchPendingAffiliates = useCallback(async () => {
+    try {
+      setLoading(true);
       const pendingResponse = await apiClient.post<{ success: boolean; data: CreatorsResponse }>('/creators', {
         page: 1,
         pageSize: 100,
         filters: { approved: 'pending' },
         sort: { by: 'createdAt', direction: 'desc' },
       });
-
       if (pendingResponse.success && pendingResponse.data) {
-        // Also include rejected for the pending tab
         const rejectedResponse = await apiClient.post<{ success: boolean; data: CreatorsResponse }>('/creators', {
           page: 1,
           pageSize: 100,
           filters: { approved: 'rejected' },
           sort: { by: 'createdAt', direction: 'desc' },
         });
-
         const pendingItems = pendingResponse.data.items.map((c, i) => extendAffiliate(c, i));
         const rejectedItems = rejectedResponse.success && rejectedResponse.data
           ? rejectedResponse.data.items.map((c, i) => extendAffiliate(c, i))
           : [];
-
         setPendingAffiliates([...pendingItems, ...rejectedItems]);
+      } else {
+        setPendingAffiliates([]);
       }
     } catch (error) {
-      console.error('Failed to fetch affiliates:', error);
+      console.error('Failed to fetch pending affiliates:', error);
+      setPendingAffiliates([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Fetch only when user is on that tab
+  useEffect(() => {
+    if (activeTab === 'current') {
+      fetchCurrentAffiliates();
+    }
+  }, [activeTab, fetchCurrentAffiliates]);
+
+  useEffect(() => {
+    if (activeTab === 'pending') {
+      fetchPendingAffiliates();
+    }
+  }, [activeTab, fetchPendingAffiliates]);
+
+  useEffect(() => {
+    if (activeTab === 'managers') {
+      fetchManagers();
+    }
+  }, [activeTab, fetchManagers]);
+
+  const fetchAssignManagersList = useCallback(async () => {
+    try {
+      setAssignManagersLoading(true);
+      const response = await apiClient.get<{ success: boolean; data: { managers: { id: string; name: string }[] } }>('/managers/list');
+      if (response.success && response.data?.managers) {
+        setAssignManagersList(response.data.managers);
+      } else {
+        setAssignManagersList([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch managers list for assign:', error);
+      setAssignManagersList([]);
+    } finally {
+      setAssignManagersLoading(false);
+    }
+  }, []);
 
   const handleAccept = (affiliate: ExtendedAffiliate) => {
     setSelectedAffiliate(affiliate);
@@ -225,6 +346,7 @@ export default function AffiliatesPage() {
       managerId: '',
     });
     setShowAcceptModal(true);
+    fetchAssignManagersList();
   };
 
   const handleAcceptSubmit = async () => {
@@ -244,7 +366,8 @@ export default function AffiliatesPage() {
       );
 
       if (response.success) {
-        await fetchAffiliates();
+        if (activeTab === 'pending') fetchPendingAffiliates();
+        else if (activeTab === 'current') fetchCurrentAffiliates();
         setShowAcceptModal(false);
         setSelectedAffiliate(null);
       }
@@ -265,7 +388,8 @@ export default function AffiliatesPage() {
       );
 
       if (response.success) {
-        await fetchAffiliates();
+        if (activeTab === 'pending') fetchPendingAffiliates();
+        else if (activeTab === 'current') fetchCurrentAffiliates();
       }
     } catch (error) {
       console.error('Failed to reject affiliate:', error);
@@ -298,7 +422,8 @@ export default function AffiliatesPage() {
         discountCode: '',
         invitedBy: 'Abdal',
       });
-      await fetchAffiliates();
+      if (activeTab === 'current') fetchCurrentAffiliates();
+      else if (activeTab === 'pending') fetchPendingAffiliates();
     } catch (error) {
       console.error('Failed to invite affiliate:', error);
     } finally {
@@ -335,7 +460,7 @@ export default function AffiliatesPage() {
           {/* Tabs */}
           <div className="flex items-center gap-1">
             <button
-              onClick={() => setActiveTab('current')}
+              onClick={() => handleTabChange('current')}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'current'
                   ? 'border-gray-900 text-gray-900'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -344,7 +469,7 @@ export default function AffiliatesPage() {
               Current Affiliates
             </button>
             <button
-              onClick={() => setActiveTab('pending')}
+              onClick={() => handleTabChange('pending')}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'pending'
                   ? 'border-gray-900 text-gray-900'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -353,7 +478,7 @@ export default function AffiliatesPage() {
               Pending
             </button>
             <button
-              onClick={() => setActiveTab('managers')}
+              onClick={() => handleTabChange('managers')}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'managers'
                   ? 'border-gray-900 text-gray-900'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -415,7 +540,7 @@ export default function AffiliatesPage() {
         </div>
 
         {/* Content */}
-        {loading ? (
+        {activeTab !== 'managers' && loading ? (
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-10 w-10 border-2 border-gray-200 border-t-[#EAC312]"></div>
           </div>
@@ -593,28 +718,79 @@ export default function AffiliatesPage() {
             {/* Affiliate Managers Tab */}
             {activeTab === 'managers' && (
               <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-100">
-                      <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Name</th>
-                      <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Email</th>
-                      <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Phone</th>
-                      <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Total Affiliates</th>
-                      <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Total Sales</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {managers.map((manager) => (
-                      <tr key={manager.id} className="border-b border-gray-50 hover:bg-gray-50">
-                        <td className="py-4 px-6 text-sm text-gray-900">{manager.name}</td>
-                        <td className="py-4 px-6 text-sm text-gray-600">{manager.email}</td>
-                        <td className="py-4 px-6 text-sm text-gray-600">{manager.phone}</td>
-                        <td className="py-4 px-6 text-sm text-gray-900">{manager.totalAffiliates}</td>
-                        <td className="py-4 px-6 text-sm text-gray-900">{formatCurrency(manager.totalSales)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                {managersLoading ? (
+                  <div className="flex justify-center items-center h-64">
+                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-gray-200 border-t-[#EAC312]" />
+                  </div>
+                ) : (
+                  <>
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-gray-100">
+                          <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Name</th>
+                          <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Email</th>
+                          <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Phone</th>
+                          <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Total Affiliates</th>
+                          <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Total Sales</th>
+                          <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Created</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {managers.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="py-12 text-center text-gray-500">
+                              No affiliate managers found
+                            </td>
+                          </tr>
+                        ) : (
+                          managers.map((manager) => (
+                            <tr key={manager.id} className="border-b border-gray-50 hover:bg-gray-50">
+                              <td className="py-4 px-6 text-sm text-gray-900">{manager.name}</td>
+                              <td className="py-4 px-6 text-sm text-gray-600">{manager.email}</td>
+                              <td className="py-4 px-6 text-sm text-gray-600">-</td>
+                              <td className="py-4 px-6 text-sm text-gray-600">-</td>
+                              <td className="py-4 px-6 text-sm text-gray-600">-</td>
+                              <td className="py-4 px-6 text-sm text-gray-600">
+                                {manager.createdAt
+                                  ? new Date(manager.createdAt).toLocaleDateString('en-IN', {
+                                      day: '2-digit',
+                                      month: 'short',
+                                      year: 'numeric',
+                                    })
+                                  : '-'}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                    {/* Managers pagination */}
+                    <div className="flex items-center justify-end gap-2 py-4 px-6 border-t border-gray-100">
+                      <button
+                        onClick={() => setManagersPage((p) => Math.max(1, p - 1))}
+                        disabled={!managersPagination.hasPrevPage || managersLoading}
+                        className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ChevronLeft className="h-5 w-5" />
+                      </button>
+                      <span className="text-sm text-gray-600">
+                        Page {managersPagination.page} of {managersPagination.totalPages || 1}
+                        {managersPagination.total > 0 && (
+                          <span className="ml-1 text-gray-500">
+                            ({managersPagination.total} total)
+                          </span>
+                        )}
+                      </span>
+                      <button
+                        onClick={() => setManagersPage((p) => p + 1)}
+                        disabled={!managersPagination.hasNextPage || managersLoading}
+                        className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ChevronRight className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </>
@@ -711,12 +887,15 @@ export default function AffiliatesPage() {
                 <select
                   value={acceptData.managerId}
                   onChange={(e) => setAcceptData({ ...acceptData, managerId: e.target.value })}
-                  className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  disabled={assignManagersLoading}
+                  className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  <option value="">Select a manager</option>
-                  {managers.map((manager) => (
+                  <option value="">
+                    {assignManagersLoading ? 'Loading managers…' : 'Select a manager'}
+                  </option>
+                  {!assignManagersLoading && assignManagersList.map((manager) => (
                     <option key={manager.id} value={manager.id}>
-                      {manager.name} ({manager.totalAffiliates} affiliates)
+                      {manager.name}
                     </option>
                   ))}
                 </select>
@@ -888,23 +1067,31 @@ export default function AffiliatesPage() {
               <button
                 onClick={() => {
                   setShowAddManagerModal(false);
-                  setNewManagerData({ name: '', email: '', phone: '' });
+                  setNewManagerData({ name: '', email: '', phone: '', password: '' });
+                  setCreateManagerError(null);
                 }}
-                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+                disabled={creatingManager}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 disabled:opacity-50"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <div className="space-y-4">
+              {createManagerError && (
+                <div className="px-4 py-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg">
+                  {createManagerError}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Name <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   value={newManagerData.name}
-                  onChange={(e) => setNewManagerData({ ...newManagerData, name: e.target.value })}
+                  onChange={(e) => { setNewManagerData({ ...newManagerData, name: e.target.value }); setCreateManagerError(null); }}
                   placeholder="Enter manager name"
                   className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  disabled={creatingManager}
                 />
               </div>
 
@@ -913,44 +1100,74 @@ export default function AffiliatesPage() {
                 <input
                   type="email"
                   value={newManagerData.email}
-                  onChange={(e) => setNewManagerData({ ...newManagerData, email: e.target.value })}
+                  onChange={(e) => { setNewManagerData({ ...newManagerData, email: e.target.value }); setCreateManagerError(null); }}
                   placeholder="Enter email address"
                   className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  disabled={creatingManager}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Default password <span className="text-red-500">*</span></label>
+                <input
+                  type="password"
+                  value={newManagerData.password ?? ''}
+                  onChange={(e) => { setNewManagerData({ ...newManagerData, password: e.target.value }); setCreateManagerError(null); }}
+                  placeholder="Set default password for this manager"
+                  className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  disabled={creatingManager}
+                />
+                <p className="mt-1 text-xs text-gray-500">The manager will use this password to sign in. They can change it later.</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Phone number (optional)</label>
                 <input
                   type="text"
                   value={newManagerData.phone}
                   onChange={(e) => setNewManagerData({ ...newManagerData, phone: e.target.value })}
                   placeholder="+91 9876543210"
                   className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  disabled={creatingManager}
                 />
               </div>
             </div>
 
             <button
-              onClick={() => {
-                // Add new manager to the list
-                const newManager: AffiliateManager = {
-                  id: `mgr_${Date.now()}`,
-                  name: newManagerData.name,
-                  email: newManagerData.email,
-                  phone: newManagerData.phone,
-                  totalAffiliates: 0,
-                  totalSales: 0,
-                  createdAt: Date.now(),
-                };
-                setManagers([...managers, newManager]);
-                setShowAddManagerModal(false);
-                setNewManagerData({ name: '', email: '', phone: '' });
+              onClick={async () => {
+                if (!newManagerData.name?.trim() || !newManagerData.email?.trim() || !newManagerData.password) {
+                  setCreateManagerError('Name, email and default password are required.');
+                  return;
+                }
+                try {
+                  setCreatingManager(true);
+                  setCreateManagerError(null);
+                  const response = await apiClient.post<{ success: boolean; data: AdminItem; error?: string }>('/admins/create', {
+                    name: newManagerData.name.trim(),
+                    email: newManagerData.email.trim(),
+                    password: newManagerData.password,
+                  });
+                  if (response.success && response.data) {
+                    setManagers((prev) => [response.data!, ...prev]);
+                    setShowAddManagerModal(false);
+                    setNewManagerData({ name: '', email: '', phone: '', password: '' });
+                    setCreateManagerError(null);
+                  } else {
+                    setCreateManagerError(response.error ?? 'Failed to create manager.');
+                  }
+                } catch (err) {
+                  const msg = err && typeof err === 'object' && 'response' in err
+                    ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
+                    : null;
+                  setCreateManagerError(msg ?? 'Failed to create manager. Please try again.');
+                } finally {
+                  setCreatingManager(false);
+                }
               }}
-              disabled={!newManagerData.name || !newManagerData.email || !newManagerData.phone}
+              disabled={creatingManager || !newManagerData.name?.trim() || !newManagerData.email?.trim() || !newManagerData.password}
               className="w-full mt-6 py-3 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Add Manager
+              {creatingManager ? 'Creating…' : 'Add Manager'}
             </button>
           </div>
         </div>
