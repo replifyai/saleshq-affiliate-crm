@@ -126,7 +126,7 @@ export default function OrdersPage() {
         },
         sort,
       });
-      
+
       if (response.success && response.data) {
         setOrders(response.data.data);
         setPagination(response.data.meta);
@@ -156,7 +156,7 @@ export default function OrdersPage() {
 
   const getOrderStatusBadge = (status?: string) => {
     if (!status) return <span className="text-sm text-gray-400">-</span>;
-    
+
     const styles: Record<string, { bg: string; text: string; label: string }> = {
       delivered: { bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'Delivered' },
       cancelled: { bg: 'bg-orange-50', text: 'text-orange-600', label: 'Cancelled' },
@@ -178,7 +178,7 @@ export default function OrdersPage() {
 
   const getPaymentStatusBadge = (status?: string) => {
     if (!status) return <span className="text-sm text-gray-400">-</span>;
-    
+
     const styles: Record<string, { bg: string; text: string; label: string }> = {
       paid: { bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'Paid' },
       pending: { bg: 'bg-amber-50', text: 'text-amber-600', label: 'Pending' },
@@ -195,7 +195,7 @@ export default function OrdersPage() {
 
   const getPayoutStatusBadge = (status?: string, daysLeft?: number) => {
     if (!status) return <span className="text-sm text-gray-400">-</span>;
-    
+
     const styles: Record<string, { bg: string; text: string; label: string }> = {
       self_referral: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Self referral' },
       cancelled: { bg: 'bg-red-50', text: 'text-red-600', label: 'Cancelled' },
@@ -228,31 +228,28 @@ export default function OrdersPage() {
           <div className="flex items-center gap-1">
             <button
               onClick={() => setActiveTab('all')}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'all'
-                  ? 'border-gray-900 text-gray-900'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'all'
+                ? 'border-gray-900 text-gray-900'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
             >
               All
             </button>
             <button
               onClick={() => setActiveTab('payout_pending')}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'payout_pending'
-                  ? 'border-gray-900 text-gray-900'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'payout_pending'
+                ? 'border-gray-900 text-gray-900'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
             >
               Payout pending
             </button>
             <button
               onClick={() => setActiveTab('payout_done')}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'payout_done'
-                  ? 'border-gray-900 text-gray-900'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'payout_done'
+                ? 'border-gray-900 text-gray-900'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
             >
               Payout done
             </button>
@@ -270,14 +267,14 @@ export default function OrdersPage() {
                 className="pl-10 pr-4 py-2 w-64 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
               />
             </div>
-            <button 
+            <button
               onClick={() => setShowFilterDrawer(true)}
               className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
             >
               <SlidersHorizontal className="h-4 w-4" />
               Filters
             </button>
-            <button 
+            <button
               onClick={() => setSort({ ...sort, direction: sort.direction === 'asc' ? 'desc' : 'asc' })}
               className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
             >
@@ -299,7 +296,7 @@ export default function OrdersPage() {
                 <tr className="border-b border-gray-100">
                   <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Order Date</th>
                   <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Order ID</th>
-                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Customer</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Affiliate Details</th>
                   <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Order Status</th>
                   <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Discount</th>
                   <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Total Amount</th>
@@ -316,8 +313,8 @@ export default function OrdersPage() {
                   </tr>
                 ) : (
                   orders.map((order, index) => (
-                    <tr 
-                      key={order.id || index} 
+                    <tr
+                      key={order.id || index}
                       className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer"
                       onClick={() => {
                         setSelectedOrder(order);
@@ -331,9 +328,9 @@ export default function OrdersPage() {
                         {order.orderNumber || order.orderId}
                       </td>
                       <td className="py-4 px-6 text-sm text-gray-900">
-                        {order.customerEmail || '-'}
-                        {order.customerId && (
-                          <span className="text-xs text-gray-500 block">{order.customerId}</span>
+                        {order.attributedCreator?.name || '-'}
+                        {order.attributedCreator?.id && (
+                          <span className="text-xs text-gray-500 block">{order.attributedCreator?.id}</span>
                         )}
                       </td>
                       <td className="py-4 px-6" onClick={e => e.stopPropagation()}>
@@ -367,7 +364,7 @@ export default function OrdersPage() {
                 )}
               </tbody>
             </table>
-            
+
             {/* Pagination */}
             <div className="flex items-center justify-end gap-2 py-4 px-6 border-t border-gray-100">
               <button

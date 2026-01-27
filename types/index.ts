@@ -288,6 +288,7 @@ export interface Order {
   rawEvent?: Record<string, any>;
   createdAt: number;
   updatedAt: number;
+  attributedCreator?: Creator;
 }
 
 export interface OrderFilters {
