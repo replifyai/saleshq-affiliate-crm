@@ -5,29 +5,53 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { FilterDrawer, FilterOption, FilterValues } from '@/components/ui/FilterDrawer';
 import { apiClient } from '@/lib/api-client';
-import { Creator, CreatorsResponse, CreatorStatus, CommissionData, CommissionBasis, ExtendedAffiliate, InviteAffiliateData, AcceptAffiliateData, NewManagerData } from '@/types';
-import { Search, ChevronLeft, ChevronRight, X, Instagram, SlidersHorizontal, UserPlus } from 'lucide-react';
+import { Creator, CreatorsResponse, CreatorStatus, CommissionData, CommissionBasis, ExtendedAffiliate, InviteAffiliateData, AcceptAffiliateData, NewManagerData, ListCoupon, ListReferralLink } from '@/types';
+import { Search, ChevronLeft, ChevronRight, X, Instagram, Youtube, Linkedin, Link2, SlidersHorizontal, UserPlus, Tag, ExternalLink } from 'lucide-react';
 
-// Admin/manager from getAllAdmins API (id, name, email, createdAt)
+// Admin/manager from getAllAdmins API
 interface AdminItem {
   id: string;
   name: string;
   email: string;
   createdAt: number;
+  affiliateCount?: number;
+  totalSales?: string;
+  totalOrders?: number;
+  totalCommission?: string;
 }
 
-// Extended mock data for affiliates
-const extendAffiliate = (creator: Creator, index: number): ExtendedAffiliate => ({
-  ...creator,
-  managedBy: 'manager-1',
-  managerName: 'Abdal',
-  discountCode: 'SUJAL',
-  discountPercent: 10,
-  reward: 10,
-  totalSales: [8744, 1004, 0, 11345.12, 14004.40, 113112.50, 30045, 0, 0, 1233.81, 2500, 0][index % 12],
-  totalOrders: Math.floor(Math.random() * 100),
-  totalCommission: Math.floor(Math.random() * 10000),
-});
+// API response type for creator list items
+interface CreatorListItem extends Creator {
+  managedByName?: string | null;
+  coupons?: ListCoupon[];
+  referralLink?: ListReferralLink | null;
+  uniqueReferralCode?: string;
+  totalSales?: string;
+  totalOrders?: number;
+  totalCommission?: string;
+}
+
+// Extend creator with API data
+const extendAffiliate = (creator: CreatorListItem): ExtendedAffiliate => {
+  const primaryCoupon = creator.coupons?.[0];
+  return {
+    ...creator,
+    managerName: creator.managedByName ?? undefined,
+    discountCode: primaryCoupon?.code ?? '',
+    discountPercent: typeof primaryCoupon?.discountValue === 'number'
+      ? primaryCoupon.discountValue
+      : parseFloat(String(primaryCoupon?.discountValue ?? 0)),
+    reward: primaryCoupon?.commissionValue
+      ? parseFloat(primaryCoupon.commissionValue)
+      : 0,
+    totalSales: parseFloat(creator.totalSales ?? '0'),
+    totalOrders: creator.totalOrders ?? 0,
+    totalCommission: parseFloat(creator.totalCommission ?? '0'),
+    coupons: creator.coupons ?? [],
+    referralLink: creator.referralLink ?? null,
+    uniqueReferralCode: creator.uniqueReferralCode,
+  };
+};
 
 type TabType = 'current' | 'pending' | 'managers';
 
@@ -93,8 +117,6 @@ function AffiliatesPageContent() {
     discountType: 'percentage',
     commissionPercent: 10,
     commissionType: 'percentage',
-    minOrderValue: undefined,
-    discountCode: '',
     managerId: '',
   });
 
@@ -253,7 +275,7 @@ function AffiliatesPageContent() {
         sort: { by: 'createdAt', direction: 'desc' },
       });
       if (response.success && response.data) {
-        setAffiliates(response.data.items.map((c, i) => extendAffiliate(c, i)));
+        setAffiliates(response.data.items.map((c) => extendAffiliate(c as CreatorListItem)));
         setPagination(response.data);
       } else {
         setAffiliates([]);
@@ -282,9 +304,9 @@ function AffiliatesPageContent() {
           filters: { approved: 'rejected' },
           sort: { by: 'createdAt', direction: 'desc' },
         });
-        const pendingItems = pendingResponse.data.items.map((c, i) => extendAffiliate(c, i));
+        const pendingItems = pendingResponse.data.items.map((c) => extendAffiliate(c as CreatorListItem));
         const rejectedItems = rejectedResponse.success && rejectedResponse.data
-          ? rejectedResponse.data.items.map((c, i) => extendAffiliate(c, i))
+          ? rejectedResponse.data.items.map((c) => extendAffiliate(c as CreatorListItem))
           : [];
         setPendingAffiliates([...pendingItems, ...rejectedItems]);
       } else {
@@ -341,8 +363,6 @@ function AffiliatesPageContent() {
       discountType: 'percentage',
       commissionPercent: 10,
       commissionType: 'percentage',
-      minOrderValue: undefined,
-      discountCode: affiliate.name.toUpperCase().replace(/\s+/g, ''),
       managerId: '',
     });
     setShowAcceptModal(true);
@@ -357,6 +377,10 @@ function AffiliatesPageContent() {
       const response = await apiClient.put<{ success: boolean; message: string }>(
         `/creators/${selectedAffiliate.id}/approve`,
         {
+          discountToCustomer: {
+            type: acceptData.discountType,
+            value: acceptData.discountPercent,
+          },
           commissionData: {
             commissionType: acceptData.commissionType,
             commissionValue: acceptData.commissionPercent,
@@ -462,8 +486,8 @@ function AffiliatesPageContent() {
             <button
               onClick={() => handleTabChange('current')}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'current'
-                  ? 'border-gray-900 text-gray-900'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-gray-900 text-gray-900'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
             >
               Current Affiliates
@@ -471,8 +495,8 @@ function AffiliatesPageContent() {
             <button
               onClick={() => handleTabChange('pending')}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'pending'
-                  ? 'border-gray-900 text-gray-900'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-gray-900 text-gray-900'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
             >
               Pending
@@ -480,8 +504,8 @@ function AffiliatesPageContent() {
             <button
               onClick={() => handleTabChange('managers')}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'managers'
-                  ? 'border-gray-900 text-gray-900'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-gray-900 text-gray-900'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
             >
               Affiliate Managers
@@ -553,7 +577,6 @@ function AffiliatesPageContent() {
                   <thead>
                     <tr className="border-b border-gray-100">
                       <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Name</th>
-                      <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Social</th>
                       <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Managed By</th>
                       <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Discount Code</th>
                       <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Discount %</th>
@@ -565,39 +588,100 @@ function AffiliatesPageContent() {
                   <tbody>
                     {affiliates.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-12 text-center text-gray-500">
+                        <td colSpan={7} className="py-12 text-center text-gray-500">
                           No affiliates found
                         </td>
                       </tr>
                     ) : (
-                      affiliates.map((affiliate) => (
-                        <tr
-                          key={affiliate.id}
-                          className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer group"
-                          onClick={() => handleViewAffiliate(affiliate)}
-                        >
-                          <td className="py-4 px-6 text-sm text-gray-900">{affiliate.name}</td>
-                          <td className="py-4 px-6">
-                            <div className="flex items-center gap-1">
-                              {affiliate.socialMediaHandles?.some(s => s.platform.toLowerCase() === 'instagram') && (
-                                <div className="w-6 h-6 rounded border border-blue-200 flex items-center justify-center">
-                                  <Instagram className="h-3.5 w-3.5 text-blue-500" />
+                      affiliates.map((affiliate) => {
+                        const primaryCoupon = affiliate.coupons?.[0];
+                        const hasMoreCoupons = affiliate.coupons && affiliate.coupons.length > 1;
+
+                        // Build tooltip for additional coupons
+                        const additionalCoupons = affiliate.coupons?.slice(1) || [];
+
+                        return (
+                          <tr
+                            key={affiliate.id}
+                            className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer group"
+                            onClick={() => handleViewAffiliate(affiliate)}
+                          >
+                            {/* Name */}
+                            <td className="py-4 px-6 text-sm text-gray-900">{affiliate.name}</td>
+
+                            {/* Managed By */}
+                            <td className="py-4 px-6 text-sm text-gray-600">
+                              {affiliate.managerName || <span className="text-gray-400">—</span>}
+                            </td>
+
+                            {/* Discount Code with tooltip for additional coupons */}
+                            <td className="py-4 px-6">
+                              {primaryCoupon ? (
+                                <div className="relative group/tooltip inline-block">
+                                  <span className={`text-sm font-medium text-gray-900 ${hasMoreCoupons ? 'cursor-help border-b border-dashed border-gray-400' : ''}`}>
+                                    {primaryCoupon.code}
+                                  </span>
+                                  {hasMoreCoupons && (
+                                    <span className="ml-1 text-xs text-gray-500">+{additionalCoupons.length}</span>
+                                  )}
+                                  {hasMoreCoupons && (
+                                    <div className="absolute z-50 left-0 top-full mt-2 hidden group-hover/tooltip:block">
+                                      <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-lg min-w-[180px]">
+                                        <div className="absolute left-4 bottom-full w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900"></div>
+                                        <div className="font-medium mb-1">Other Coupons:</div>
+                                        {additionalCoupons.map((coupon, idx) => (
+                                          <div key={idx} className="mt-1">
+                                            <span className="font-mono">{coupon.code}</span>
+                                            <span className="text-gray-400 ml-1">
+                                              ({coupon.discountType === 'percentage' ? `${coupon.discountValue}%` : `₹${coupon.discountValue}`} off)
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
+                              ) : (
+                                <span className="text-sm text-gray-400">—</span>
                               )}
-                            </div>
-                          </td>
-                          <td className="py-4 px-6 text-sm text-gray-600">{affiliate.managerName || 'Abdal'}</td>
-                          <td className="py-4 px-6 text-sm text-gray-900">{affiliate.discountCode || 'SUJAL'}</td>
-                          <td className="py-4 px-6 text-sm text-gray-600">{affiliate.discountPercent || 10}%</td>
-                          <td className="py-4 px-6 text-sm text-gray-600">{affiliate.reward || 10}%</td>
-                          <td className="py-4 px-6 text-sm text-gray-900">{formatCurrency(affiliate.totalSales || 0)}</td>
-                          <td className="py-4 px-6 text-sm">
-                            <span className="text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                              view →
-                            </span>
-                          </td>
-                        </tr>
-                      ))
+                            </td>
+
+                            {/* Discount % */}
+                            <td className="py-4 px-6 text-sm text-gray-600">
+                              {primaryCoupon ? (
+                                primaryCoupon.discountType === 'percentage'
+                                  ? `${primaryCoupon.discountValue}%`
+                                  : `₹${primaryCoupon.discountValue}`
+                              ) : (
+                                <span className="text-gray-400">—</span>
+                              )}
+                            </td>
+
+                            {/* Reward (Commission) */}
+                            <td className="py-4 px-6 text-sm text-gray-600">
+                              {primaryCoupon?.commissionValue ? (
+                                primaryCoupon.commissionType === 'percentage'
+                                  ? `${primaryCoupon.commissionValue}%`
+                                  : `₹${primaryCoupon.commissionValue}`
+                              ) : (
+                                <span className="text-gray-400">—</span>
+                              )}
+                            </td>
+
+                            {/* Total Sales */}
+                            <td className="py-4 px-6 text-sm text-gray-900">
+                              {formatCurrency(affiliate.totalSales || 0)}
+                            </td>
+
+                            {/* View */}
+                            <td className="py-4 px-6 text-sm">
+                              <span className="text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                                view →
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -729,7 +813,6 @@ function AffiliatesPageContent() {
                         <tr className="border-b border-gray-100">
                           <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Name</th>
                           <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Email</th>
-                          <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Phone</th>
                           <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Total Affiliates</th>
                           <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Total Sales</th>
                           <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Created</th>
@@ -738,25 +821,33 @@ function AffiliatesPageContent() {
                       <tbody>
                         {managers.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="py-12 text-center text-gray-500">
+                            <td colSpan={5} className="py-12 text-center text-gray-500">
                               No affiliate managers found
                             </td>
                           </tr>
                         ) : (
                           managers.map((manager) => (
                             <tr key={manager.id} className="border-b border-gray-50 hover:bg-gray-50">
-                              <td className="py-4 px-6 text-sm text-gray-900">{manager.name}</td>
+                              <td className="py-4 px-6 text-sm font-medium text-gray-900">{manager.name}</td>
                               <td className="py-4 px-6 text-sm text-gray-600">{manager.email}</td>
-                              <td className="py-4 px-6 text-sm text-gray-600">-</td>
-                              <td className="py-4 px-6 text-sm text-gray-600">-</td>
-                              <td className="py-4 px-6 text-sm text-gray-600">-</td>
+                              <td className="py-4 px-6 text-sm text-gray-900">
+                                {manager.affiliateCount ?? 0}
+                              </td>
+                              <td className="py-4 px-6">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {formatCurrency(parseFloat(manager.totalSales ?? '0'))}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {manager.totalOrders ?? 0} orders
+                                </div>
+                              </td>
                               <td className="py-4 px-6 text-sm text-gray-600">
                                 {manager.createdAt
                                   ? new Date(manager.createdAt).toLocaleDateString('en-IN', {
-                                      day: '2-digit',
-                                      month: 'short',
-                                      year: 'numeric',
-                                    })
+                                    day: '2-digit',
+                                    month: 'short',
+                                    year: 'numeric',
+                                  })
                                   : '-'}
                               </td>
                             </tr>
@@ -858,28 +949,6 @@ function AffiliatesPageContent() {
                     <option value="fixed">Fixed</option>
                   </select>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Min order Value</label>
-                <input
-                  type="number"
-                  value={acceptData.minOrderValue || ''}
-                  onChange={(e) => setAcceptData({ ...acceptData, minOrderValue: e.target.value ? Number(e.target.value) : undefined })}
-                  placeholder="Enter Amount"
-                  className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Discount Code</label>
-                <input
-                  type="text"
-                  value={acceptData.discountCode}
-                  onChange={(e) => setAcceptData({ ...acceptData, discountCode: e.target.value.toUpperCase() })}
-                  placeholder="Enter discount code"
-                  className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                />
               </div>
 
               <div>

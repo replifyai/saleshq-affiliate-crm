@@ -61,31 +61,28 @@ export async function GET(request: NextRequest) {
     // Map the analytics response to DashboardStats format
     const analytics = analyticsData.analytics || {};
     const salesBreakdown = analytics.salesBreakdown || {};
-    
-    // Calculate average order value
-    const avgOrderValue = analytics.totalOrders > 0 
-      ? analytics.totalRevenue / analytics.totalOrders 
-      : 0;
 
-    // Map response to DashboardStats
+    // Map response to DashboardStats (totalCommissions, totalActiveAffiliates from new getAnalytics shape)
     const stats = {
       totalRevenue: analytics.totalRevenue || 0,
       totalOrders: analytics.totalOrders || 0,
+      totalCommissions: analytics.totalCommissions ?? 0,
+      totalActiveAffiliates: analytics.totalActiveAffiliates ?? 0,
       // These fields are not available in analytics API, set to 0
       totalCreators: 0,
       activeCreators: 0,
       pendingCreators: 0,
       totalCoupons: 0,
       activeCoupons: 0,
-      conversionRate: 0, // Not available in analytics response
-      averageOrderValue: avgOrderValue,
-      // Include additional analytics data for the dashboard
+      conversionRate: 0,
+      averageOrderValue: analytics.totalOrders > 0 ? (analytics.totalRevenue || 0) / analytics.totalOrders : 0,
       salesBreakdown: {
         grossSales: salesBreakdown.grossSales || 0,
         discounts: salesBreakdown.discounts || 0,
         taxes: salesBreakdown.taxes || 0,
         returns: salesBreakdown.returns || 0,
         payouts: salesBreakdown.payouts || 0,
+        commissions: salesBreakdown.commissions ?? 0,
         totalSales: salesBreakdown.totalSales || 0,
       },
       salesBySocialChannel: analytics.salesBySocialChannel || {},

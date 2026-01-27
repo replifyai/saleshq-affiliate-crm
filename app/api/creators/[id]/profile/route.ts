@@ -46,12 +46,13 @@ export async function GET(
       );
     }
 
-    const data = await response.json();
-    const creator = data.creator ?? data;
+    const body = await response.json();
+    // Backend returns { profile, stats, coupons, managedByName, ... } or { data: { profile, ... } }
+    const data = body.data ?? body;
 
     return NextResponse.json({
       success: true,
-      data: creator,
+      data,
     });
   } catch (error) {
     return handleApiError(error);

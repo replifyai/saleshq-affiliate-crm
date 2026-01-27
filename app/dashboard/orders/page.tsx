@@ -336,8 +336,19 @@ export default function OrdersPage() {
                           <span className="text-xs text-gray-500 block">{order.customerId}</span>
                         )}
                       </td>
-                      <td className="py-4 px-6">
-                        {getOrderStatusBadge()}
+                      <td className="py-4 px-6" onClick={e => e.stopPropagation()}>
+                        {order.orderStatusUrl ? (
+                          <a
+                            href={order.orderStatusUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                          >
+                            {order.orderStatus ? `${order.orderStatus} ↗` : 'View in Shopify ↗'}
+                          </a>
+                        ) : (
+                          getOrderStatusBadge(order.orderStatus ?? order.paymentStatus)
+                        )}
                       </td>
                       <td className="py-4 px-6 text-sm text-gray-600">
                         {order.appliedCoupons?.[0] || order.attributedCouponCode || '-'}

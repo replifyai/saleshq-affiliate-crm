@@ -38,6 +38,26 @@ export interface Creator {
   approvedBy?: string;
 }
 
+// Coupon data as returned in creators list API
+export interface ListCoupon {
+  title?: string;
+  code: string;
+  discountType: 'percentage' | 'amount';
+  discountValue: number | string;
+  commissionType?: 'percentage' | 'fixed' | null;
+  commissionValue?: string | null;
+  commissionBasis?: 'subtotal_after_discounts' | 'subtotal_before_discounts' | 'total' | null;
+}
+
+// Referral link data as returned in creators list API
+export interface ListReferralLink {
+  referralCode: string;
+  commissionType: 'percentage' | 'fixed';
+  commissionValue: string;
+  commissionBasis: 'subtotal_after_discounts' | 'subtotal_before_discounts' | 'total';
+  active: boolean;
+}
+
 export interface Coupon {
   id: string;
   code: string;
@@ -111,13 +131,15 @@ export interface CouponConfig {
 export interface DashboardStats {
   totalRevenue: number;
   totalOrders: number;
+  totalCommissions?: number;
+  totalActiveAffiliates?: number;
   totalCreators: number;
   activeCreators: number;
   pendingCreators: number;
   totalCoupons: number;
   activeCoupons: number;
   conversionRate: number;
-  averageOrderValue: number;
+  averageOrderValue?: number;
   // Additional analytics data
   salesBreakdown?: {
     grossSales: number;
@@ -125,6 +147,7 @@ export interface DashboardStats {
     taxes: number;
     returns: number;
     payouts: number;
+    commissions?: number;
     totalSales: number;
   };
   salesBySocialChannel?: Record<string, any>;
@@ -257,6 +280,8 @@ export interface Order {
   commissionCurrency?: string;
   commissionSource?: CommissionSource;
   paymentStatus: PaymentStatus;
+  orderStatus?: string;
+  orderStatusUrl?: string;
   paymentMethod?: string;
   refundedAmount?: string;
   refundReason?: string;
@@ -347,6 +372,10 @@ export interface ExtendedAffiliate extends Creator {
   totalCommission?: number;
   featuredCollections?: FeaturedCollection[];
   featuredProducts?: FeaturedProduct[];
+  // From list API - coupons and referral link details
+  coupons?: ListCoupon[];
+  referralLink?: ListReferralLink | null;
+  uniqueReferralCode?: string;
 }
 
 export interface FeaturedCollection {
@@ -381,8 +410,6 @@ export interface AcceptAffiliateData {
   discountType: 'percentage' | 'fixed';
   commissionPercent: number;
   commissionType: 'percentage' | 'fixed';
-  minOrderValue?: number;
-  discountCode: string;
   managerId: string;
 }
 

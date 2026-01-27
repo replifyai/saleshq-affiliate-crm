@@ -7,7 +7,7 @@ import { DashboardStats } from '@/types';
 import { 
   DollarSign, 
   ShoppingCart, 
-  FolderOpen, 
+  Wallet, 
   Users, 
   Share2,
   Package,
@@ -355,6 +355,8 @@ export default function DashboardPage() {
   const defaultStats: DashboardStats = {
     totalRevenue: 0,
     totalOrders: 0,
+    totalCommissions: 0,
+    totalActiveAffiliates: 0,
     totalCreators: 0,
     activeCreators: 0,
     pendingCreators: 0,
@@ -570,14 +572,14 @@ export default function DashboardPage() {
                 icon={ShoppingCart}
               />
               <StatCard 
-                title="Average Order Value" 
-                value={`₹${stats.averageOrderValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                title="Total Commissions" 
+                value={`₹${(stats.totalCommissions ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 change={0}
-                icon={FolderOpen}
+                icon={Wallet}
               />
               <StatCard 
-                title="Top Affiliates" 
-                value={(stats.topAffiliates?.length || 0).toString()}
+                title="Total Active Affiliates" 
+                value={(stats.totalActiveAffiliates ?? 0).toLocaleString('en-IN')}
                 change={0}
                 icon={Users}
               />
