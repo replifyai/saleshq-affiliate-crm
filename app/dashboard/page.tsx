@@ -4,11 +4,11 @@ import { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { apiClient } from '@/lib/api-client';
 import { DashboardStats } from '@/types';
-import { 
-  DollarSign, 
-  ShoppingCart, 
-  Wallet, 
-  Users, 
+import {
+  DollarSign,
+  ShoppingCart,
+  Wallet,
+  Users,
   Share2,
   Package,
   Repeat,
@@ -48,7 +48,7 @@ const mockData = {
   totalOrders: 13445,
   sessions: 1843445,
   activeAffiliates: 3445,
-  
+
   // Sales by social channels
   socialChannels: [
     { name: 'Instagram', value: 3975471, percentage: 24 },
@@ -57,7 +57,7 @@ const mockData = {
     { name: 'Twitter', value: 3975471, percentage: 24 },
     { name: 'Linkedin', value: 3975471, percentage: 24 },
   ],
-  
+
   // Sales by product
   products: [
     { name: 'Frido Ultimate Wedge Plus Cushion', value: 39754706.71, percentage: 24, image: '/products/cushion.jpg' },
@@ -66,12 +66,12 @@ const mockData = {
     { name: 'Frido Travel Neck Pillow', value: 39754706.71, percentage: 24, image: '/products/travel.jpg' },
     { name: 'Frido Barefoot Sock Shoe Pro', value: 39754706.71, percentage: 24, image: '/products/sock.jpg' },
   ],
-  
+
   // Conversion rate data points for chart
   conversionRate: 4.27,
   conversionChange: -15,
   conversionData: [3, 4, 5, 6, 8, 7, 6.5, 7, 6, 5.5],
-  
+
   // Sales breakdown
   salesBreakdown: {
     grossSales: 39754706.71,
@@ -82,7 +82,7 @@ const mockData = {
     taxes: 39754.71,
     totalSales: 32754706.71,
   },
-  
+
   // Top affiliates
   topAffiliates: [
     { name: 'Alister D Silva', value: 39754706.71, percentage: 24 },
@@ -91,7 +91,7 @@ const mockData = {
     { name: 'Manmohan', value: 3975471, percentage: 24 },
     { name: 'Saloma Palms', value: 3975471, percentage: 24 },
   ],
-  
+
   // Top affiliate managers
   topManagers: [
     { name: 'Saiyed Abdal', value: 39754706.71, percentage: 24 },
@@ -118,15 +118,15 @@ function formatCompactINR(amount: number): string {
 }
 
 // Stat Card Component
-function StatCard({ 
-  title, 
-  value, 
-  change, 
-  icon: Icon 
-}: { 
-  title: string; 
-  value: string; 
-  change: number; 
+function StatCard({
+  title,
+  value,
+  change,
+  icon: Icon
+}: {
+  title: string;
+  value: string;
+  change: number;
   icon: React.ElementType;
 }) {
   return (
@@ -150,8 +150,8 @@ function ProgressBar({ percentage, maxPercentage = 100 }: { percentage: number; 
   const width = (percentage / maxPercentage) * 100;
   return (
     <div className="h-2 bg-gray-100 rounded-full flex-1">
-      <div 
-        className="h-full bg-[#EAC312] rounded-full transition-all duration-500" 
+      <div
+        className="h-full bg-[#EAC312] rounded-full transition-all duration-500"
         style={{ width: `${Math.min(width, 100)}%` }}
       />
     </div>
@@ -159,15 +159,15 @@ function ProgressBar({ percentage, maxPercentage = 100 }: { percentage: number; 
 }
 
 // Channel/Product Row Component
-function DataRow({ 
-  name, 
-  value, 
+function DataRow({
+  name,
+  value,
   percentage,
   barWidth = 100,
   image
-}: { 
-  name: string; 
-  value: number; 
+}: {
+  name: string;
+  value: number;
   percentage: number;
   barWidth?: number;
   image?: string;
@@ -196,7 +196,7 @@ function DataRow({
 // Chart.js Conversion Rate Component
 function ConversionChart({ data }: { data: number[] }) {
   const labels = ['Oct 1', 'Oct 2', 'Oct 3', 'Oct 4', 'Oct 5', 'Oct 6', 'Oct 7', 'Oct 8', 'Oct 9', 'Oct 10'];
-  
+
   // Split data into actual and projected
   const actualData = data.slice(0, 7);
   const projectedData = [...Array(6).fill(null), ...data.slice(6)];
@@ -313,14 +313,14 @@ function ConversionChart({ data }: { data: number[] }) {
 }
 
 // Affiliate Row Component
-function AffiliateRow({ 
-  name, 
-  value, 
+function AffiliateRow({
+  name,
+  value,
   percentage,
   barWidth = 100
-}: { 
-  name: string; 
-  value: number; 
+}: {
+  name: string;
+  value: number;
   percentage: number;
   barWidth?: number;
 }) {
@@ -341,13 +341,13 @@ function AffiliateRow({
 }
 
 export default function DashboardPage() {
-  // Default to last 24 hours
+  // Default to today
   const getDefaultDates = () => {
     const now = new Date();
-    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const today = now.toISOString().split('T')[0];
     return {
-      startDate: yesterday.toISOString().split('T')[0],
-      endDate: now.toISOString().split('T')[0],
+      startDate: today,
+      endDate: today,
     };
   };
 
@@ -369,7 +369,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats>(defaultStats);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
-  const [selectedFilter, setSelectedFilter] = useState<'24hours' | 'custom'>('24hours');
+  const [selectedFilter, setSelectedFilter] = useState<'today' | 'custom'>('today');
   const [startDate, setStartDate] = useState<string>(defaultDates.startDate);
   const [endDate, setEndDate] = useState<string>(defaultDates.endDate);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -383,34 +383,38 @@ export default function DashboardPage() {
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      
-      // Convert date strings to ISO format with time
-      let startDateISO: string;
-      let endDateISO: string;
-      
+
+      // Format date as YYYY-MM-DD
+      const formatDate = (date: Date): string => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+
+      let startDateStr: string;
+      let endDateStr: string;
+
       if (force24Hours) {
-        // Force 24 hours mode
+        // Force today mode
         const now = new Date();
-        endDateISO = now.toISOString();
-        const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        startDateISO = yesterday.toISOString();
+        const today = formatDate(now);
+        startDateStr = today;
+        endDateStr = today;
       } else if (customStartDate || selectedFilter === 'custom') {
-        const start = customStartDate || startDate;
-        const end = customEndDate || endDate;
-        // Convert date string to ISO format (start of day for start, end of day for end)
-        startDateISO = new Date(start + 'T00:00:00.000Z').toISOString();
-        endDateISO = new Date(end + 'T23:59:59.999Z').toISOString();
+        startDateStr = customStartDate || startDate;
+        endDateStr = customEndDate || endDate;
       } else {
-        // Default to 24 hours
+        // Default to today
         const now = new Date();
-        endDateISO = now.toISOString();
-        const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        startDateISO = yesterday.toISOString();
+        const today = formatDate(now);
+        startDateStr = today;
+        endDateStr = today;
       }
-      
-      params.append('startDate', startDateISO);
-      params.append('endDate', endDateISO);
-      
+
+      params.append('startDate', startDateStr);
+      params.append('endDate', endDateStr);
+
       const url = `/dashboard/stats?${params.toString()}`;
       const response = await apiClient.get<{ success: boolean; data: DashboardStats }>(url);
       if (response.success && response.data) {
@@ -423,13 +427,13 @@ export default function DashboardPage() {
     }
   };
 
-  const handle24HoursClick = () => {
+  const handleTodayClick = () => {
     const dates = getDefaultDates();
     setStartDate(dates.startDate);
     setEndDate(dates.endDate);
-    setSelectedFilter('24hours');
+    setSelectedFilter('today');
     setShowDatePicker(false);
-    // Force 24 hours mode to avoid stale state issues
+    // Force today mode to avoid stale state issues
     fetchStats(undefined, undefined, true);
   };
 
@@ -449,7 +453,7 @@ export default function DashboardPage() {
         setShowDatePicker(false);
       }
     };
-    
+
     if (showDatePicker) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -469,28 +473,26 @@ export default function DashboardPage() {
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
             <div className="flex items-center gap-2 relative">
-              <button 
-                onClick={handle24HoursClick}
-                className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
-                  selectedFilter === '24hours' 
-                    ? 'bg-white border-gray-300 text-gray-900' 
-                    : 'bg-transparent border-gray-200 text-gray-500 hover:bg-white'
-                }`}
+              <button
+                onClick={handleTodayClick}
+                className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${selectedFilter === 'today'
+                  ? 'bg-white border-gray-300 text-gray-900'
+                  : 'bg-transparent border-gray-200 text-gray-500 hover:bg-white'
+                  }`}
               >
                 <Calendar className="h-3.5 w-3.5 inline mr-1.5" />
-                Last 24 hours
+                Today
               </button>
               <div className="relative date-picker-container">
                 <button
                   onClick={() => setShowDatePicker(!showDatePicker)}
-                  className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
-                    selectedFilter === 'custom' 
-                      ? 'bg-white border-gray-300 text-gray-900' 
-                      : 'bg-transparent border-gray-200 text-gray-500 hover:bg-white'
-                  }`}
+                  className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${selectedFilter === 'custom'
+                    ? 'bg-white border-gray-300 text-gray-900'
+                    : 'bg-transparent border-gray-200 text-gray-500 hover:bg-white'
+                    }`}
                 >
                   <Calendar className="h-3.5 w-3.5 inline mr-1.5" />
-                  {selectedFilter === 'custom' 
+                  {selectedFilter === 'custom'
                     ? `${startDate} - ${endDate}`
                     : 'Custom Range'
                   }
@@ -559,26 +561,26 @@ export default function DashboardPage() {
           <>
             {/* Top Stats Row */}
             <div className="grid grid-cols-4 gap-4 mb-6">
-              <StatCard 
-                title="Total Revenue" 
+              <StatCard
+                title="Total Revenue"
                 value={`₹${stats.totalRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 change={0}
                 icon={DollarSign}
               />
-              <StatCard 
-                title="Total Orders" 
+              <StatCard
+                title="Total Orders"
                 value={stats.totalOrders.toLocaleString('en-IN')}
                 change={0}
                 icon={ShoppingCart}
               />
-              <StatCard 
-                title="Total Commissions" 
+              <StatCard
+                title="Total Commissions"
                 value={`₹${(stats.totalCommissions ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 change={0}
                 icon={Wallet}
               />
-              <StatCard 
-                title="Total Active Affiliates" 
+              <StatCard
+                title="Total Active Affiliates"
                 value={(stats.totalActiveAffiliates ?? 0).toLocaleString('en-IN')}
                 change={0}
                 icon={Users}
@@ -605,7 +607,7 @@ export default function DashboardPage() {
                         .sort((a, b) => b.sales - a.sales);
                       const maxSales = channels.length > 0 ? Math.max(...channels.map(c => c.sales)) : 1;
                       return channels.map((channel, index) => (
-                        <DataRow 
+                        <DataRow
                           key={channel.key}
                           name={channel.name}
                           value={channel.sales}
@@ -639,7 +641,7 @@ export default function DashboardPage() {
                         .slice(0, 5);
                       const maxSales = products.length > 0 ? Math.max(...products.map(p => p.sales)) : 1;
                       return products.map((product, index) => (
-                        <DataRow 
+                        <DataRow
                           key={product.key}
                           name={product.name}
                           value={product.sales}
@@ -695,7 +697,7 @@ export default function DashboardPage() {
                       <div className="flex items-center gap-2">
                         <span className={`text-sm ${item.bold ? 'font-semibold' : 'font-medium'} text-gray-900`}>
                           {item.value === 0 ? '₹0.00' : (
-                            item.value < 0 
+                            item.value < 0
                               ? `-₹${Math.abs(item.value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                               : `₹${item.value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                           )}
@@ -724,7 +726,7 @@ export default function DashboardPage() {
                       const maxRevenue = Math.max(...stats.topAffiliates!.map(a => a.revenue || 0));
                       const barWidth = maxRevenue > 0 ? (affiliate.revenue / maxRevenue) * 100 : 0;
                       return (
-                        <AffiliateRow 
+                        <AffiliateRow
                           key={affiliate.id}
                           name={affiliate.name}
                           value={affiliate.revenue || 0}
@@ -751,7 +753,7 @@ export default function DashboardPage() {
                       const maxValue = Math.max(...stats.topManagers!.map((m: any) => m.revenue || m.value || 0));
                       const barWidth = maxValue > 0 ? ((manager.revenue || manager.value || 0) / maxValue) * 100 : 0;
                       return (
-                        <AffiliateRow 
+                        <AffiliateRow
                           key={manager.id || index}
                           name={manager.name || 'Unknown Manager'}
                           value={manager.revenue || manager.value || 0}
