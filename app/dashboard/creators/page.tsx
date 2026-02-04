@@ -29,6 +29,9 @@ interface CreatorListItem extends Creator {
   totalSales?: string;
   totalOrders?: number;
   totalCommission?: string;
+  totalRefundedAmount?: string;
+  totalRefundedOrders?: number;
+  netSales?: string;
 }
 
 // Extend creator with API data
@@ -47,6 +50,9 @@ const extendAffiliate = (creator: CreatorListItem): ExtendedAffiliate => {
     totalSales: parseFloat(creator.totalSales ?? '0'),
     totalOrders: creator.totalOrders ?? 0,
     totalCommission: parseFloat(creator.totalCommission ?? '0'),
+    totalRefundedAmount: parseFloat(creator.totalRefundedAmount ?? '0'),
+    totalRefundedOrders: creator.totalRefundedOrders ?? 0,
+    netSales: parseFloat(creator.netSales ?? '0'),
     coupons: creator.coupons ?? [],
     referralLink: creator.referralLink ?? null,
     uniqueReferralCode: creator.uniqueReferralCode,
@@ -582,13 +588,15 @@ function AffiliatesPageContent() {
                       <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Discount %</th>
                       <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Reward</th>
                       <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Total Sales</th>
+                      <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Returns</th>
+                      <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Net Sales</th>
                       <th className="text-left py-4 px-6 text-sm font-medium text-gray-500"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {affiliates.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-12 text-center text-gray-500">
+                        <td colSpan={9} className="py-12 text-center text-gray-500">
                           No affiliates found
                         </td>
                       </tr>
@@ -671,6 +679,32 @@ function AffiliatesPageContent() {
                             {/* Total Sales */}
                             <td className="py-4 px-6 text-sm text-gray-900">
                               {formatCurrency(affiliate.totalSales || 0)}
+                            </td>
+
+                            {/* Returns */}
+                            <td className="py-4 px-6">
+                              {(affiliate.totalRefundedOrders ?? 0) > 0 ? (
+                                <div>
+                                  <div className="text-sm font-medium text-red-500">
+                                    {formatCurrency(affiliate.totalRefundedAmount || 0)}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    {affiliate.totalRefundedOrders} {affiliate.totalRefundedOrders === 1 ? 'order' : 'orders'}
+                                    {(affiliate.totalOrders ?? 0) > 0 && (
+                                      <span className="text-red-400 ml-1">
+                                        ({((affiliate.totalRefundedOrders ?? 0) / (affiliate.totalOrders ?? 1) * 100).toFixed(0)}%)
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-sm text-gray-400">—</span>
+                              )}
+                            </td>
+
+                            {/* Net Sales */}
+                            <td className="py-4 px-6 text-sm font-medium text-gray-900">
+                              {formatCurrency(affiliate.netSales || 0)}
                             </td>
 
                             {/* View */}

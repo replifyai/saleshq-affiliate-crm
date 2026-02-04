@@ -79,6 +79,7 @@ export async function GET(request: NextRequest) {
       salesBreakdown: {
         grossSales: salesBreakdown.grossSales || 0,
         discounts: salesBreakdown.discounts || 0,
+        shipping: salesBreakdown.shipping || 0,
         taxes: salesBreakdown.taxes || 0,
         returns: salesBreakdown.returns || 0,
         payouts: salesBreakdown.payouts || 0,

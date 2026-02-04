@@ -144,6 +144,7 @@ export interface DashboardStats {
   salesBreakdown?: {
     grossSales: number;
     discounts: number;
+    shipping: number;
     taxes: number;
     returns: number;
     payouts: number;
@@ -152,7 +153,8 @@ export interface DashboardStats {
   };
   salesBySocialChannel?: Record<string, any>;
   salesByProduct?: Record<string, {
-    qty: number;
+    sold_qty: number;
+    returned_qty: number;
     sales: number;
     name: string;
   }>;
@@ -163,7 +165,12 @@ export interface DashboardStats {
     revenue: number;
     commission: number;
   }>;
-  topManagers?: Array<any>;
+  topManagers?: Array<{
+    id: string;
+    name: string;
+    orders: number;
+    revenue: number;
+  }>;
   dateRange?: {
     start: string;
     end: string;
@@ -371,6 +378,9 @@ export interface ExtendedAffiliate extends Creator {
   totalSales?: number;
   totalOrders?: number;
   totalCommission?: number;
+  totalRefundedAmount?: number;
+  totalRefundedOrders?: number;
+  netSales?: number;
   featuredCollections?: FeaturedCollection[];
   featuredProducts?: FeaturedProduct[];
   // From list API - coupons and referral link details

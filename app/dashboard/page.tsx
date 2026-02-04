@@ -193,6 +193,41 @@ function DataRow({
   );
 }
 
+// Product Row Component with quantity info
+function ProductRow({
+  name,
+  value,
+  soldQty,
+  returnedQty,
+  barWidth = 100
+}: {
+  name: string;
+  value: number;
+  soldQty: number;
+  returnedQty: number;
+  barWidth?: number;
+}) {
+  return (
+    <div className="flex items-center gap-3 py-2">
+      <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+        <Package className="h-4 w-4 text-gray-400" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm text-gray-700 truncate">{name}</div>
+        <div className="text-xs text-gray-400 mt-0.5">
+          {soldQty} sold{returnedQty > 0 && ` · ${returnedQty} returned`}
+        </div>
+        <div className="mt-1">
+          <ProgressBar percentage={barWidth} />
+        </div>
+      </div>
+      <div className="text-right flex-shrink-0">
+        <span className="text-sm font-medium text-gray-900">₹{value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+      </div>
+    </div>
+  );
+}
+
 // Chart.js Conversion Rate Component
 function ConversionChart({ data }: { data: number[] }) {
   const labels = ['Oct 1', 'Oct 2', 'Oct 3', 'Oct 4', 'Oct 5', 'Oct 6', 'Oct 7', 'Oct 8', 'Oct 9', 'Oct 10'];
@@ -334,6 +369,67 @@ function AffiliateRow({
           {percentage > 0 && (
             <span className="text-xs text-emerald-500 ml-2">{percentage}% <TrendingUp className="h-2.5 w-2.5 inline" /></span>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Affiliate Detail Row Component with orders and commission
+function AffiliateDetailRow({
+  name,
+  revenue,
+  orders,
+  commission,
+  barWidth = 100
+}: {
+  name: string;
+  revenue: number;
+  orders: number;
+  commission: number;
+  barWidth?: number;
+}) {
+  return (
+    <div className="py-2">
+      <div className="flex items-center justify-between mb-1">
+        <div className="text-sm text-gray-700">{name}</div>
+        <div className="text-xs text-gray-400">{orders} {orders === 1 ? 'order' : 'orders'}</div>
+      </div>
+      <div className="flex items-center gap-3">
+        <ProgressBar percentage={barWidth} />
+        <div className="text-right flex-shrink-0 min-w-[140px]">
+          <span className="text-sm font-medium text-gray-900">₹{revenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+        </div>
+      </div>
+      <div className="text-xs text-gray-400 text-right mt-1">
+        Commission: ₹{commission.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      </div>
+    </div>
+  );
+}
+
+// Manager Detail Row Component with orders
+function ManagerDetailRow({
+  name,
+  revenue,
+  orders,
+  barWidth = 100
+}: {
+  name: string;
+  revenue: number;
+  orders: number;
+  barWidth?: number;
+}) {
+  return (
+    <div className="py-2">
+      <div className="flex items-center justify-between mb-1">
+        <div className="text-sm text-gray-700">{name}</div>
+        <div className="text-xs text-gray-400">{orders} {orders === 1 ? 'order' : 'orders'}</div>
+      </div>
+      <div className="flex items-center gap-3">
+        <ProgressBar percentage={barWidth} />
+        <div className="text-right flex-shrink-0 min-w-[140px]">
+          <span className="text-sm font-medium text-gray-900">₹{revenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
       </div>
     </div>
@@ -636,18 +732,20 @@ export default function DashboardPage() {
                           key,
                           name: product.name || `Product ${key}`,
                           sales: product.sales || 0,
+                          soldQty: product.sold_qty || 0,
+                          returnedQty: product.returned_qty || 0,
                         }))
                         .sort((a, b) => b.sales - a.sales)
                         .slice(0, 5);
                       const maxSales = products.length > 0 ? Math.max(...products.map(p => p.sales)) : 1;
-                      return products.map((product, index) => (
-                        <DataRow
+                      return products.map((product) => (
+                        <ProductRow
                           key={product.key}
                           name={product.name}
                           value={product.sales}
-                          percentage={0}
+                          soldQty={product.soldQty}
+                          returnedQty={product.returnedQty}
                           barWidth={maxSales > 0 ? (product.sales / maxSales) * 100 : 0}
-                          image={undefined}
                         />
                       ));
                     })()
@@ -685,24 +783,27 @@ export default function DashboardPage() {
                   {stats.salesBreakdown ? [
                     { label: 'Gross Sales', value: stats.salesBreakdown.grossSales, positive: true },
                     { label: 'Discounts', value: stats.salesBreakdown.discounts, positive: false },
+                    { label: 'Shipping', value: stats.salesBreakdown.shipping, positive: true },
                     { label: 'Taxes', value: stats.salesBreakdown.taxes, positive: true },
-                    { label: 'Returns', value: stats.salesBreakdown.returns, positive: null },
+                    { label: 'Returns', value: stats.salesBreakdown.returns, positive: null, red: true },
                     { label: 'Payouts', value: stats.salesBreakdown.payouts, positive: false },
+                    { label: 'Commissions', value: stats.salesBreakdown.commissions ?? 0, positive: false },
                     { label: 'Total Sales', value: stats.salesBreakdown.totalSales, positive: true, bold: true },
+                    { label: 'Net Sales', value: stats.salesBreakdown.totalSales - stats.salesBreakdown.returns, positive: true, bold: true },
                   ].map((item) => (
                     <div key={item.label} className="flex justify-between items-center">
                       <span className={`text-sm ${item.bold ? 'font-medium text-gray-900' : 'text-gray-600'}`}>
                         {item.label}
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className={`text-sm ${item.bold ? 'font-semibold' : 'font-medium'} text-gray-900`}>
+                        <span className={`text-sm ${item.bold ? 'font-semibold' : 'font-medium'} ${item.red ? 'text-red-500' : 'text-gray-900'}`}>
                           {item.value === 0 ? '₹0.00' : (
                             item.value < 0
                               ? `-₹${Math.abs(item.value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                               : `₹${item.value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                           )}
                         </span>
-                        {item.positive === null && <span className="text-xs text-gray-400">-</span>}
+                        {item.positive === null && !item.red && <span className="text-xs text-gray-400">-</span>}
                       </div>
                     </div>
                   )) : (
@@ -722,15 +823,16 @@ export default function DashboardPage() {
                 </div>
                 <div className="space-y-1">
                   {stats.topAffiliates && stats.topAffiliates.length > 0 ? (
-                    stats.topAffiliates.slice(0, 5).map((affiliate, index) => {
+                    stats.topAffiliates.slice(0, 5).map((affiliate) => {
                       const maxRevenue = Math.max(...stats.topAffiliates!.map(a => a.revenue || 0));
-                      const barWidth = maxRevenue > 0 ? (affiliate.revenue / maxRevenue) * 100 : 0;
+                      const barWidth = maxRevenue > 0 ? ((affiliate.revenue || 0) / maxRevenue) * 100 : 0;
                       return (
-                        <AffiliateRow
+                        <AffiliateDetailRow
                           key={affiliate.id}
                           name={affiliate.name}
-                          value={affiliate.revenue || 0}
-                          percentage={0}
+                          revenue={affiliate.revenue || 0}
+                          orders={affiliate.orders || 0}
+                          commission={affiliate.commission || 0}
                           barWidth={barWidth}
                         />
                       );
@@ -749,15 +851,15 @@ export default function DashboardPage() {
                 </div>
                 <div className="space-y-1">
                   {stats.topManagers && stats.topManagers.length > 0 ? (
-                    stats.topManagers.slice(0, 5).map((manager: any, index) => {
-                      const maxValue = Math.max(...stats.topManagers!.map((m: any) => m.revenue || m.value || 0));
-                      const barWidth = maxValue > 0 ? ((manager.revenue || manager.value || 0) / maxValue) * 100 : 0;
+                    stats.topManagers.slice(0, 5).map((manager, index) => {
+                      const maxValue = Math.max(...stats.topManagers!.map((m) => m.revenue || 0));
+                      const barWidth = maxValue > 0 ? ((manager.revenue || 0) / maxValue) * 100 : 0;
                       return (
-                        <AffiliateRow
+                        <ManagerDetailRow
                           key={manager.id || index}
                           name={manager.name || 'Unknown Manager'}
-                          value={manager.revenue || manager.value || 0}
-                          percentage={0}
+                          revenue={manager.revenue || 0}
+                          orders={manager.orders || 0}
                           barWidth={barWidth}
                         />
                       );
