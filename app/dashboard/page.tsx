@@ -41,66 +41,6 @@ ChartJS.register(
   Legend
 );
 
-// Mock data for the dashboard - will be replaced with API data
-const mockData = {
-  // Top stats
-  totalRevenue: 1743245,
-  totalOrders: 13445,
-  sessions: 1843445,
-  activeAffiliates: 3445,
-
-  // Sales by social channels
-  socialChannels: [
-    { name: 'Instagram', value: 3975471, percentage: 24 },
-    { name: 'Youtube', value: 3975471, percentage: 24 },
-    { name: 'Facebook', value: 3975471, percentage: 24 },
-    { name: 'Twitter', value: 3975471, percentage: 24 },
-    { name: 'Linkedin', value: 3975471, percentage: 24 },
-  ],
-
-  // Sales by product
-  products: [
-    { name: 'Frido Ultimate Wedge Plus Cushion', value: 39754706.71, percentage: 24, image: '/products/cushion.jpg' },
-    { name: 'Ultimate Car Comfort Bundle', value: 39754706.71, percentage: 24, image: '/products/bundle.jpg' },
-    { name: 'Frido Car Neck Mini Pillow', value: 39754706.71, percentage: 24, image: '/products/pillow.jpg' },
-    { name: 'Frido Travel Neck Pillow', value: 39754706.71, percentage: 24, image: '/products/travel.jpg' },
-    { name: 'Frido Barefoot Sock Shoe Pro', value: 39754706.71, percentage: 24, image: '/products/sock.jpg' },
-  ],
-
-  // Conversion rate data points for chart
-  conversionRate: 4.27,
-  conversionChange: -15,
-  conversionData: [3, 4, 5, 6, 8, 7, 6.5, 7, 6, 5.5],
-
-  // Sales breakdown
-  salesBreakdown: {
-    grossSales: 39754706.71,
-    orders: 754706.71,
-    discounts: -39754.71,
-    payouts: -39754.71,
-    returns: 0,
-    taxes: 39754.71,
-    totalSales: 32754706.71,
-  },
-
-  // Top affiliates
-  topAffiliates: [
-    { name: 'Alister D Silva', value: 39754706.71, percentage: 24 },
-    { name: 'Abin Sasidharan', value: 3975471, percentage: 24 },
-    { name: 'James Tharakan', value: 3975471, percentage: 24 },
-    { name: 'Manmohan', value: 3975471, percentage: 24 },
-    { name: 'Saloma Palms', value: 3975471, percentage: 24 },
-  ],
-
-  // Top affiliate managers
-  topManagers: [
-    { name: 'Saiyed Abdal', value: 39754706.71, percentage: 24 },
-    { name: 'Gautami Chati', value: 3975471, percentage: 24 },
-    { name: 'Parag Swami', value: 3975471, percentage: 24 },
-    { name: 'Dileep Pakkat', value: 3975471, percentage: 24 },
-    { name: 'Chaitrali Bokil', value: 3975471, percentage: 24 },
-  ],
-};
 
 // Format currency in Indian Rupees style
 function formatINR(amount: number): string {
@@ -161,12 +101,14 @@ function ProgressBar({ percentage, maxPercentage = 100 }: { percentage: number; 
 // Channel/Product Row Component
 function DataRow({
   name,
+  subtitle,
   value,
   percentage,
   barWidth = 100,
   image
 }: {
   name: string;
+  subtitle?: string;
   value: number;
   percentage: number;
   barWidth?: number;
@@ -180,8 +122,13 @@ function DataRow({
         </div>
       )}
       <div className="flex-1 min-w-0">
-        <div className="text-sm text-gray-700 truncate mb-1">{name}</div>
-        <ProgressBar percentage={barWidth} />
+        <div className="text-sm text-gray-700 truncate capitalize">{name}</div>
+        {subtitle && (
+          <div className="text-xs text-gray-400 truncate mt-0.5">{subtitle}</div>
+        )}
+        <div className="mt-1">
+          <ProgressBar percentage={barWidth} />
+        </div>
       </div>
       <div className="text-right flex-shrink-0">
         <span className="text-sm font-medium text-gray-900">₹{value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
@@ -695,11 +642,19 @@ export default function DashboardPage() {
                   {stats.salesBySocialChannel && Object.keys(stats.salesBySocialChannel).length > 0 ? (
                     (() => {
                       const channels = Object.entries(stats.salesBySocialChannel)
-                        .map(([key, value]: [string, any]) => ({
-                          key,
-                          name: key,
-                          sales: value.sales || value || 0,
-                        }))
+                        .map(([key, value]: [string, any]) => {
+                          const isNumber = typeof value === 'number';
+                          const sales = isNumber
+                            ? value
+                            : (value?.revenue ?? value?.sales ?? 0);
+                          const orders = isNumber ? 0 : (value?.orders ?? 0);
+                          return {
+                            key,
+                            name: key,
+                            sales,
+                            orders,
+                          };
+                        })
                         .sort((a, b) => b.sales - a.sales);
                       const maxSales = channels.length > 0 ? Math.max(...channels.map(c => c.sales)) : 1;
                       return channels.map((channel, index) => (
@@ -707,6 +662,7 @@ export default function DashboardPage() {
                           key={channel.key}
                           name={channel.name}
                           value={channel.sales}
+                          subtitle={channel.orders ? `${channel.orders} ${channel.orders === 1 ? 'order' : 'orders'}` : undefined}
                           percentage={0}
                           barWidth={maxSales > 0 ? (channel.sales / maxSales) * 100 : 0}
                         />
