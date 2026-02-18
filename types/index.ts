@@ -288,6 +288,7 @@ export interface Order {
   commissionSource?: CommissionSource;
   paymentStatus: PaymentStatus;
   orderStatus?: string;
+  fulfillmentStatus?: string;
   orderStatusUrl?: string;
   paymentMethod?: string;
   refundedAmount?: string;
@@ -422,6 +423,17 @@ export interface AcceptAffiliateData {
   commissionPercent: number;
   commissionType: 'percentage' | 'fixed';
   managerId: string;
+  couponData?: {
+    title: string;
+    code: string;
+    value: {
+      type: 'percentage' | 'fixed_amount';
+      percentage?: number;
+      amount?: number;
+    };
+    usageLimit: number;
+    description: string;
+  };
 }
 
 export interface NewManagerData {
@@ -429,5 +441,111 @@ export interface NewManagerData {
   email: string;
   phone: string;
   password?: string;
+}
+
+// ─── Payout System Types ─────────────────────────────────────────────
+
+export interface PayoutAvailable {
+  creatorId: string;
+  available: {
+    amount: string;
+    currency: string;
+    eligibleCommissions: number;
+    deductions: string;
+    carryForwardDeduction: string;
+  };
+  pending: {
+    amount: string;
+    commissionsWithinWindow: number;
+  };
+  canPayout: boolean;
+  hasPaymentMethod: boolean;
+  reason: string | null;
+  nextPayoutDate: string | null;
+}
+
+export interface LedgerEntry {
+  id: string;
+  orderInternalId: string;
+  orderNumber: string;
+  basisAmount: string;
+  commissionAmount: string;
+  deductedAmount?: string;
+  status: 'pending_payment' | 'paid';
+  entryType: string;
+  createdAt: number;
+  orderCreatedAt: number;
+  isEligible: boolean;
+  eligibleAt: number | null;
+}
+
+export type PayoutStatusType = 'approved' | 'processing' | 'processed' | 'failed' | 'reversed';
+
+export interface PayoutHistoryItem {
+  id: string;
+  amount: string;
+  currency: string;
+  commissionsCount: number;
+  deductionsAmount: string;
+  status: PayoutStatusType;
+  initiatedByType: 'creator' | 'admin';
+  initiatedById: string;
+  processedAt: number | null;
+  createdAt: number;
+}
+
+export interface PayoutInitiateResponse {
+  success: boolean;
+  payoutId: string;
+  amount: string;
+  commissionsIncluded: number;
+}
+
+export interface PaymentConfig {
+  payoutWindowDays: number;
+  payoutDayOfMonth: number;
+  minPayoutAmount: string;
+  defaultCurrency: string;
+  disqualifyingOrderStatuses: string[];
+  eligibleLedgerStatus: string;
+  updatedAt: number;
+  updatedBy: string;
+}
+
+export interface PayoutSummary {
+  totalPaidOut: string;
+  totalPaidOutCount: number;
+  totalEligible: string;
+  totalEligibleCount: number;
+  totalPending: string;
+  totalPendingCount: number;
+  affiliatesWithPayouts: number;
+  affiliatesWithEligible: number;
+  currency: string;
+  dateRange: {
+    from: string;
+    to: string;
+  };
+}
+
+export interface PayoutRecord {
+  id: string;
+  affiliate: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  ordersCount: number;
+  amount: string;
+  currency: string;
+  paymentMethod: {
+    type: string;
+    details: string;
+  };
+  issuedDate: number;
+  processedDate: number | null;
+  status: string;
+  razorpayStatus?: string;
+  razorpayUtr?: string;
 }
 

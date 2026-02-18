@@ -8,7 +8,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { commissionData, discountToCustomer } = body;
+    const { commissionData, discountToCustomer, couponData } = body;
 
     // Validate commissionData (backend changeCreatorStatus expects commissionValue as string)
     let commissionPayload: { commissionType: string; commissionValue: string; commissionBasis: string } | undefined;
@@ -55,6 +55,9 @@ export async function PUT(
     }
     if (commissionPayload) {
       requestBody.commissionData = commissionPayload;
+    }
+    if (couponData) {
+      requestBody.couponData = couponData;
     }
 
     const response = await fetchBackend('/changeCreatorStatus', {

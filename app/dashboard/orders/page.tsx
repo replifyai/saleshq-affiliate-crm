@@ -5,7 +5,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { FilterDrawer, FilterOption, FilterValues } from '@/components/ui/FilterDrawer';
 import { apiClient } from '@/lib/api-client';
 import { Order, OrderFilters, OrderSort, PaginatedResponse } from '@/types';
-import { Search, SlidersHorizontal, ArrowUpDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Search, SlidersHorizontal, ArrowUpDown, ChevronLeft, ChevronRight, X, Info } from 'lucide-react';
 
 type TabType = 'all' | 'payout_pending' | 'payout_done';
 
@@ -154,15 +154,41 @@ export default function OrdersPage() {
     return `₹${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const getOrderStatusBadge = (status?: string) => {
+  // Derive a single combined order status from payment + fulfillment
+  const getDerivedOrderStatus = (paymentStatus?: string, fulfillmentStatus?: string | null): { bg: string; text: string; label: string } => {
+    const ps = (paymentStatus || '').toLowerCase();
+    const fs = (fulfillmentStatus || '').toLowerCase();
+
+    // Refund takes highest priority
+    if (ps === 'refunded') return { bg: 'bg-red-50', text: 'text-red-600', label: 'Refunded' };
+    if (ps === 'partially_refunded') return { bg: 'bg-orange-50', text: 'text-orange-600', label: 'Partially Refunded' };
+
+    // Cancelled / returned
+    if (fs === 'restocked') return { bg: 'bg-purple-50', text: 'text-purple-600', label: 'Returned' };
+
+    // Fulfillment-driven statuses
+    if (fs === 'fulfilled' && ps === 'paid') return { bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'Delivered' };
+    if (fs === 'fulfilled') return { bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'Fulfilled' };
+    if (fs === 'partial') return { bg: 'bg-amber-50', text: 'text-amber-600', label: 'Partially Fulfilled' };
+
+    // Payment-driven statuses (unfulfilled)
+    if (ps === 'paid') return { bg: 'bg-blue-50', text: 'text-blue-600', label: 'Paid' };
+    if (ps === 'pending') return { bg: 'bg-amber-50', text: 'text-amber-600', label: 'Pending Payment' };
+
+    // Fallback
+    if (!ps && !fs) return { bg: 'bg-gray-100', text: 'text-gray-500', label: 'Unknown' };
+    return { bg: 'bg-gray-100', text: 'text-gray-600', label: ps || fs || 'Unknown' };
+  };
+
+  const formatStatusLabel = (status?: string | null) => {
+    if (!status) return '—';
+    return status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  };
+
+  const getPaymentStatusBadge = (status?: string) => {
     if (!status) return <span className="text-sm text-gray-400">-</span>;
 
     const styles: Record<string, { bg: string; text: string; label: string }> = {
-      delivered: { bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'Delivered' },
-      cancelled: { bg: 'bg-orange-50', text: 'text-orange-600', label: 'Cancelled' },
-      in_transit: { bg: 'bg-amber-50', text: 'text-amber-600', label: 'In Transit' },
-      returned: { bg: 'bg-red-50', text: 'text-red-600', label: 'Returned' },
-      processing: { bg: 'bg-blue-50', text: 'text-blue-600', label: 'Processing' },
       paid: { bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'Paid' },
       pending: { bg: 'bg-amber-50', text: 'text-amber-600', label: 'Pending' },
       refunded: { bg: 'bg-red-50', text: 'text-red-600', label: 'Refunded' },
@@ -176,16 +202,20 @@ export default function OrdersPage() {
     );
   };
 
-  const getPaymentStatusBadge = (status?: string) => {
-    if (!status) return <span className="text-sm text-gray-400">-</span>;
-
+  const getFulfillmentStatusBadge = (status?: string | null) => {
+    if (!status) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-600">
+          Unfulfilled
+        </span>
+      );
+    }
     const styles: Record<string, { bg: string; text: string; label: string }> = {
-      paid: { bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'Paid' },
-      pending: { bg: 'bg-amber-50', text: 'text-amber-600', label: 'Pending' },
-      refunded: { bg: 'bg-red-50', text: 'text-red-600', label: 'Refunded' },
-      partially_refunded: { bg: 'bg-orange-50', text: 'text-orange-600', label: 'Partially Refunded' },
+      fulfilled: { bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'Fulfilled' },
+      partial: { bg: 'bg-amber-50', text: 'text-amber-600', label: 'Partially Fulfilled' },
+      restocked: { bg: 'bg-purple-50', text: 'text-purple-600', label: 'Restocked' },
     };
-    const style = styles[status] || { bg: 'bg-gray-50', text: 'text-gray-600', label: status };
+    const style = styles[status.toLowerCase()] || { bg: 'bg-gray-50', text: 'text-gray-600', label: status };
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium ${style.bg} ${style.text}`}>
         {style.label}
@@ -329,12 +359,30 @@ export default function OrdersPage() {
                       </td>
                       <td className="py-4 px-6 text-sm text-gray-900">
                         {order.attributedCreator?.name || '-'}
-                        {order.attributedCreator?.id && (
-                          <span className="text-xs text-gray-500 block">{order.attributedCreator?.id}</span>
-                        )}
                       </td>
-                      <td className="py-4 px-6" onClick={e => e.stopPropagation()}>
-                        {getPaymentStatusBadge(order.paymentStatus)}
+                      <td className="py-4 px-6">
+                        {(() => {
+                          const derived = getDerivedOrderStatus(order.paymentStatus, order.fulfillmentStatus);
+                          return (
+                            <div className="flex items-center gap-1.5">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium ${derived.bg} ${derived.text}`}>
+                                {derived.label}
+                              </span>
+                              <div className="relative group/tip">
+                                <Info className="h-3.5 w-3.5 text-gray-400 cursor-help" />
+                                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover/tip:block z-20">
+                                  <div className="bg-gray-900 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap shadow-lg">
+                                    <div className="flex flex-col gap-1">
+                                      <span>Payment: {formatStatusLabel(order.paymentStatus)}</span>
+                                      <span>Fulfillment: {formatStatusLabel(order.fulfillmentStatus) || 'Unfulfilled'}</span>
+                                    </div>
+                                    <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900" />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="py-4 px-6 text-sm text-gray-600">
                         {order.appliedCoupons?.[0] || order.attributedCouponCode || '-'}
@@ -439,6 +487,12 @@ export default function OrdersPage() {
                         <span className="text-sm text-gray-600">Payment Status:</span>
                         <span className="text-sm font-medium text-gray-900">
                           {getPaymentStatusBadge(selectedOrder.paymentStatus)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Fulfillment Status:</span>
+                        <span className="text-sm font-medium text-gray-900">
+                          {getFulfillmentStatusBadge(selectedOrder.fulfillmentStatus)}
                         </span>
                       </div>
                       {selectedOrder.pixelEventId && (

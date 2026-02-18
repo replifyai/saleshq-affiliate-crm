@@ -124,6 +124,13 @@ function AffiliatesPageContent() {
     commissionPercent: 10,
     commissionType: 'percentage',
     managerId: '',
+    couponData: {
+      title: '',
+      code: '',
+      value: { type: 'percentage', percentage: 10 },
+      usageLimit: 100,
+      description: '',
+    }
   });
 
   // Add Manager Modal state
@@ -370,6 +377,13 @@ function AffiliatesPageContent() {
       commissionPercent: 10,
       commissionType: 'percentage',
       managerId: '',
+      couponData: {
+        title: `${affiliate.name}'s Coupon`,
+        code: affiliate.name.slice(0, 6).toUpperCase() + '10',
+        value: { type: 'percentage', percentage: 10 },
+        usageLimit: 100,
+        description: `Discount code for ${affiliate.name}`,
+      }
     });
     setShowAcceptModal(true);
     fetchAssignManagersList();
@@ -391,7 +405,8 @@ function AffiliatesPageContent() {
             commissionType: acceptData.commissionType,
             commissionValue: acceptData.commissionPercent,
             commissionBasis: 'subtotal_after_discounts' as CommissionBasis,
-          }
+          },
+          couponData: acceptData.couponData,
         }
       );
 
@@ -982,6 +997,114 @@ function AffiliatesPageContent() {
                     <option value="percentage">Percentage</option>
                     <option value="fixed">Fixed</option>
                   </select>
+                </div>
+              </div>
+
+              {/* Coupon Data Fields */}
+              <div className="border-t border-gray-100 pt-4 mt-4">
+                <h3 className="text-sm font-medium text-gray-900 mb-4">Coupon Details</h3>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Coupon Title</label>
+                    <input
+                      type="text"
+                      value={acceptData.couponData?.title || ''}
+                      onChange={(e) => setAcceptData({
+                        ...acceptData,
+                        couponData: { ...acceptData.couponData!, title: e.target.value }
+                      })}
+                      placeholder="Summer Sale"
+                      className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Coupon Code</label>
+                    <input
+                      type="text"
+                      value={acceptData.couponData?.code || ''}
+                      onChange={(e) => setAcceptData({
+                        ...acceptData,
+                        couponData: { ...acceptData.couponData!, code: e.target.value.toUpperCase() }
+                      })}
+                      placeholder="SUMMER10"
+                      className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Coupon Value</label>
+                  <div className="flex gap-2">
+                    <div className="flex-1 relative">
+                      <input
+                        type="number"
+                        value={acceptData.couponData?.value.type === 'percentage'
+                          ? acceptData.couponData.value.percentage
+                          : acceptData.couponData?.value.amount}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setAcceptData({
+                            ...acceptData,
+                            couponData: {
+                              ...acceptData.couponData!,
+                              value: acceptData.couponData?.value.type === 'percentage'
+                                ? { ...acceptData.couponData.value, percentage: val }
+                                : { ...acceptData.couponData!.value, amount: val }
+                            }
+                          });
+                        }}
+                        className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                      />
+                    </div>
+                    <select
+                      value={acceptData.couponData?.value.type}
+                      onChange={(e) => {
+                        const newType = e.target.value as 'percentage' | 'fixed_amount';
+                        setAcceptData({
+                          ...acceptData,
+                          couponData: {
+                            ...acceptData.couponData!,
+                            value: {
+                              type: newType,
+                              percentage: newType === 'percentage' ? 10 : undefined,
+                              amount: newType === 'fixed_amount' ? 100 : undefined
+                            }
+                          }
+                        });
+                      }}
+                      className="px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                    >
+                      <option value="percentage">Percentage</option>
+                      <option value="fixed_amount">Fixed Amount</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Usage Limit</label>
+                  <input
+                    type="number"
+                    value={acceptData.couponData?.usageLimit || ''}
+                    onChange={(e) => setAcceptData({
+                      ...acceptData,
+                      couponData: { ...acceptData.couponData!, usageLimit: Number(e.target.value) }
+                    })}
+                    className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                  <textarea
+                    value={acceptData.couponData?.description || ''}
+                    onChange={(e) => setAcceptData({
+                      ...acceptData,
+                      couponData: { ...acceptData.couponData!, description: e.target.value }
+                    })}
+                    rows={2}
+                    className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  />
                 </div>
               </div>
 

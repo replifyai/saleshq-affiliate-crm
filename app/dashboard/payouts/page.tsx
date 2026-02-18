@@ -1,365 +1,345 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { FilterDrawer, FilterOption, FilterValues } from '@/components/ui/FilterDrawer';
-import { Search, SlidersHorizontal, ArrowUpDown, ChevronLeft, ChevronRight, Download, Eye } from 'lucide-react';
+import { apiClient } from '@/lib/api-client';
+import {
+  Creator,
+  PayoutAvailable,
+  LedgerEntry,
+  PayoutHistoryItem,
+  PayoutStatusType,
+  PaymentConfig,
+  PayoutSummary,
+  PayoutRecord,
+} from '@/types';
+import {
+  Search,
+  X,
+  Wallet,
+  Clock,
+  IndianRupee,
+  Settings,
+  Send,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  RefreshCw,
+  Save,
+  Calendar,
+  Eye,
+} from 'lucide-react';
 
-type PayoutStatus = 'issued' | 'processed' | 'pending' | 'failed';
-type TabType = 'issued' | 'processed';
+// ─── Helpers ──────────────────────────────────────────────────────────
 
-interface Payout {
-  id: string;
-  affiliateId: string;
-  affiliateName: string;
-  affiliateEmail: string;
-  amount: number;
-  currencyCode: string;
-  ordersCount: number;
-  periodStart: number;
-  periodEnd: number;
-  status: PayoutStatus;
-  issuedAt: number;
-  processedAt?: number;
-  transactionId?: string;
-  paymentMethod: string;
-  bankDetails?: {
-    bankName: string;
-    accountNumber: string;
+const fmt = (v: string | number) =>
+  `₹${parseFloat(String(v)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const fmtDate = (ts: number) =>
+  new Date(ts).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+const fmtDateLong = (ts: number) =>
+  new Date(ts).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+
+// ─── Badge helpers ────────────────────────────────────────────────────
+
+const payoutStatusBadge = (status: PayoutStatusType) => {
+  const map: Record<PayoutStatusType, { bg: string; text: string; label: string }> = {
+    approved: { bg: 'bg-amber-50', text: 'text-amber-600', label: 'Approved' },
+    processing: { bg: 'bg-amber-50', text: 'text-amber-600', label: 'Processing' },
+    processed: { bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'Processed' },
+    failed: { bg: 'bg-red-50', text: 'text-red-600', label: 'Failed' },
+    reversed: { bg: 'bg-red-50', text: 'text-red-600', label: 'Reversed' },
   };
+  const s = map[status] ?? { bg: 'bg-gray-100', text: 'text-gray-600', label: status };
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium ${s.bg} ${s.text}`}>
+      {s.label}
+    </span>
+  );
+};
+
+const ledgerStatusBadge = (isEligible: boolean, status: string) => {
+  if (status === 'paid')
+    return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-600">Paid</span>;
+  if (isEligible)
+    return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-600">Eligible</span>;
+  return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-500">Pending</span>;
+};
+
+// ─── Types for internal use ────────────────────────────────────────────
+
+type TabType = 'payouts' | 'settings';
+type PayoutSubTab = 'issued' | 'processed';
+
+interface CreatorListItem extends Creator {
+  managedByName?: string | null;
+  totalSales?: string;
+  totalOrders?: number;
+  totalCommission?: string;
+  payoutPreference?: string | null;
+  upiId?: string | null;
+  bankAccountNumber?: string | null;
+  bankAccountName?: string | null;
+  netSales?: string;
 }
 
-// Mock data for payouts
-const mockPayouts: Payout[] = [
-  {
-    id: 'pay_001',
-    affiliateId: 'aff_001',
-    affiliateName: 'Sameer Poswal',
-    affiliateEmail: 'sameer@gmail.com',
-    amount: 8744.00,
-    currencyCode: 'INR',
-    ordersCount: 15,
-    periodStart: 1701388800000,
-    periodEnd: 1704067200000,
-    status: 'issued',
-    issuedAt: 1704153600000,
-    paymentMethod: 'Bank Transfer',
-    bankDetails: { bankName: 'HDFC Bank', accountNumber: '****4521' }
-  },
-  {
-    id: 'pay_002',
-    affiliateId: 'aff_002',
-    affiliateName: 'Yuvraj Gautam',
-    affiliateEmail: 'yuvraj@gmail.com',
-    amount: 12500.50,
-    currencyCode: 'INR',
-    ordersCount: 23,
-    periodStart: 1701388800000,
-    periodEnd: 1704067200000,
-    status: 'issued',
-    issuedAt: 1704153600000,
-    paymentMethod: 'Bank Transfer',
-    bankDetails: { bankName: 'ICICI Bank', accountNumber: '****7832' }
-  },
-  {
-    id: 'pay_003',
-    affiliateId: 'aff_003',
-    affiliateName: 'Soham',
-    affiliateEmail: 'soham@gmail.com',
-    amount: 5600.00,
-    currencyCode: 'INR',
-    ordersCount: 8,
-    periodStart: 1701388800000,
-    periodEnd: 1704067200000,
-    status: 'issued',
-    issuedAt: 1704153600000,
-    paymentMethod: 'UPI',
-  },
-  {
-    id: 'pay_004',
-    affiliateId: 'aff_004',
-    affiliateName: 'Vaibhav Sharma',
-    affiliateEmail: 'vaibhav@gmail.com',
-    amount: 14004.40,
-    currencyCode: 'INR',
-    ordersCount: 28,
-    periodStart: 1698796800000,
-    periodEnd: 1701388800000,
-    status: 'processed',
-    issuedAt: 1701475200000,
-    processedAt: 1701561600000,
-    transactionId: 'TXN123456789',
-    paymentMethod: 'Bank Transfer',
-    bankDetails: { bankName: 'SBI', accountNumber: '****9012' }
-  },
-  {
-    id: 'pay_005',
-    affiliateId: 'aff_005',
-    affiliateName: 'Meenakshi Chauhan',
-    affiliateEmail: 'meenakshi@gmail.com',
-    amount: 113112.50,
-    currencyCode: 'INR',
-    ordersCount: 156,
-    periodStart: 1698796800000,
-    periodEnd: 1701388800000,
-    status: 'processed',
-    issuedAt: 1701475200000,
-    processedAt: 1701561600000,
-    transactionId: 'TXN123456790',
-    paymentMethod: 'Bank Transfer',
-    bankDetails: { bankName: 'Axis Bank', accountNumber: '****3456' }
-  },
-  {
-    id: 'pay_006',
-    affiliateId: 'aff_006',
-    affiliateName: 'Paavni Patnik',
-    affiliateEmail: 'paavni@gmail.com',
-    amount: 30045.00,
-    currencyCode: 'INR',
-    ordersCount: 45,
-    periodStart: 1698796800000,
-    periodEnd: 1701388800000,
-    status: 'processed',
-    issuedAt: 1701475200000,
-    processedAt: 1701561600000,
-    transactionId: 'TXN123456791',
-    paymentMethod: 'Bank Transfer',
-    bankDetails: { bankName: 'Kotak Bank', accountNumber: '****7890' }
-  },
-  {
-    id: 'pay_007',
-    affiliateId: 'aff_007',
-    affiliateName: 'Puja',
-    affiliateEmail: 'puja@gmail.com',
-    amount: 2500.00,
-    currencyCode: 'INR',
-    ordersCount: 5,
-    periodStart: 1701388800000,
-    periodEnd: 1704067200000,
-    status: 'issued',
-    issuedAt: 1704153600000,
-    paymentMethod: 'UPI',
-  },
-  {
-    id: 'pay_008',
-    affiliateId: 'aff_008',
-    affiliateName: 'Ishika Rahangdale',
-    affiliateEmail: 'ishika@gmail.com',
-    amount: 1233.81,
-    currencyCode: 'INR',
-    ordersCount: 3,
-    periodStart: 1698796800000,
-    periodEnd: 1701388800000,
-    status: 'processed',
-    issuedAt: 1701475200000,
-    processedAt: 1701561600000,
-    transactionId: 'TXN123456792',
-    paymentMethod: 'Bank Transfer',
-    bankDetails: { bankName: 'Yes Bank', accountNumber: '****1234' }
-  },
-  {
-    id: 'pay_009',
-    affiliateId: 'aff_009',
-    affiliateName: 'Tasneem',
-    affiliateEmail: 'tasneem@gmail.com',
-    amount: 2500.00,
-    currencyCode: 'INR',
-    ordersCount: 6,
-    periodStart: 1701388800000,
-    periodEnd: 1704067200000,
-    status: 'issued',
-    issuedAt: 1704153600000,
-    paymentMethod: 'Bank Transfer',
-    bankDetails: { bankName: 'PNB', accountNumber: '****5678' }
-  },
-  {
-    id: 'pay_010',
-    affiliateId: 'aff_010',
-    affiliateName: 'Jeevan K S',
-    affiliateEmail: 'jeevan@gmail.com',
-    amount: 8500.00,
-    currencyCode: 'INR',
-    ordersCount: 12,
-    periodStart: 1698796800000,
-    periodEnd: 1701388800000,
-    status: 'processed',
-    issuedAt: 1701475200000,
-    processedAt: 1701561600000,
-    transactionId: 'TXN123456793',
-    paymentMethod: 'UPI',
-  },
-];
+// ─── Component ────────────────────────────────────────────────────────
 
 export default function PayoutsPage() {
-  const [activeTab, setActiveTab] = useState<TabType>('issued');
-  const [payouts, setPayouts] = useState<Payout[]>([]);
-  const [loading, setLoading] = useState(true);
+  // ── Tab state ──────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<TabType>('payouts');
+  const [payoutSubTab, setPayoutSubTab] = useState<PayoutSubTab>('issued');
+
+  // ── Payout records state ───────────────────────────────────
+  const [payouts, setPayouts] = useState<PayoutRecord[]>([]);
+  const [payoutsLoading, setPayoutsLoading] = useState(true);
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [mounted, setMounted] = useState(false);
-  const [page, setPage] = useState(1);
-  const [pageSize] = useState(10);
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [selectedPayout, setSelectedPayout] = useState<Payout | null>(null);
 
-  // Filter drawer state
-  const [showFilterDrawer, setShowFilterDrawer] = useState(false);
-  const [filterValues, setFilterValues] = useState<FilterValues>({
-    paymentMethod: [],
-    dateRange: { from: '', to: '' },
-    amountRange: { min: 0, max: 200000 },
-    affiliate: '',
+  // ── Creator detail panel state ─────────────────────────────
+  const [selectedCreator, setSelectedCreator] = useState<CreatorListItem | null>(null);
+  const [showDetail, setShowDetail] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [payoutData, setPayoutData] = useState<PayoutAvailable | null>(null);
+  const [ledger, setLedger] = useState<LedgerEntry[]>([]);
+  const [history, setHistory] = useState<PayoutHistoryItem[]>([]);
+  const [detailTab, setDetailTab] = useState<'overview' | 'ledger' | 'history'>('history');
+
+  // ── Initiate payout modal state ────────────────────────────
+  const [showPayoutModal, setShowPayoutModal] = useState(false);
+  const [payoutAmount, setPayoutAmount] = useState('');
+  const [payoutProcessing, setPayoutProcessing] = useState(false);
+  const [payoutError, setPayoutError] = useState<string | null>(null);
+  const [payoutSuccess, setPayoutSuccess] = useState<string | null>(null);
+
+  // ── Payment config state ───────────────────────────────────
+  const [config, setConfig] = useState<PaymentConfig | null>(null);
+  const [configLoading, setConfigLoading] = useState(false);
+  const [configSaving, setConfigSaving] = useState(false);
+  const [configForm, setConfigForm] = useState({
+    payoutWindowDays: 7,
+    payoutDayOfMonth: 1,
+    minPayoutAmount: '100',
+    defaultCurrency: 'INR',
+    disqualifyingOrderStatuses: 'refunded, failed',
   });
+  const [configMsg, setConfigMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Filter options for payouts
-  const payoutFilters: FilterOption[] = [
-    {
-      id: 'paymentMethod',
-      label: 'Payment Method',
-      type: 'multiselect',
-      options: [
-        { value: 'Bank Transfer', label: 'Bank Transfer' },
-        { value: 'UPI', label: 'UPI' },
-        { value: 'PayPal', label: 'PayPal' },
-        { value: 'Razorpay', label: 'Razorpay' },
-      ],
-    },
-    {
-      id: 'dateRange',
-      label: 'Payout Date',
-      type: 'daterange',
-    },
-    {
-      id: 'amountRange',
-      label: 'Payout Amount (₹)',
-      type: 'range',
-      min: 0,
-      max: 200000,
-    },
-    {
-      id: 'affiliate',
-      label: 'Affiliate',
-      type: 'text',
-      placeholder: 'Search by affiliate name',
-    },
-  ];
+  // ── Payout summary state ───────────────────────────────────
+  const [summary, setSummary] = useState<PayoutSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
-  const handleApplyFilters = (values: FilterValues) => {
-    setFilterValues(values);
-    setPage(1);
-    console.log('Applied filters:', values);
-  };
+  const [mounted, setMounted] = useState(false);
 
-  const handleResetFilters = () => {
-    setFilterValues({
-      paymentMethod: [],
-      dateRange: { from: '', to: '' },
-      amountRange: { min: 0, max: 200000 },
-      affiliate: '',
-    });
-  };
+  // ── Debounce search ────────────────────────────────────────
+  useEffect(() => {
+    const t = setTimeout(() => { setDebouncedSearch(searchInput); }, 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  // ── Fetch payout records ───────────────────────────────────
+  const fetchPayouts = useCallback(async () => {
+    try {
+      setPayoutsLoading(true);
+      const params = new URLSearchParams();
+      if (dateFrom) params.set('from', dateFrom);
+      if (dateTo) params.set('to', dateTo);
+      // Map sub-tab to status filter
+      if (payoutSubTab === 'issued') params.set('status', 'processing');
+      if (payoutSubTab === 'processed') params.set('status', 'completed');
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      const res = await apiClient.get<{ success: boolean; data: { payouts: PayoutRecord[] } }>(`/payouts${qs}`);
+      if (res.success && res.data?.payouts) {
+        setPayouts(res.data.payouts);
+      } else {
+        setPayouts([]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch payouts:', err);
+      setPayouts([]);
+    } finally {
+      setPayoutsLoading(false);
+    }
+  }, [dateFrom, dateTo, payoutSubTab]);
 
   useEffect(() => {
-    setMounted(true);
-    fetchPayouts();
+    if (activeTab === 'payouts') fetchPayouts();
+  }, [activeTab, fetchPayouts]);
+
+  // ── Fetch payout summary ───────────────────────────────────
+  const fetchSummary = useCallback(async () => {
+    try {
+      setSummaryLoading(true);
+      const params = new URLSearchParams();
+      if (dateFrom) params.set('from', dateFrom);
+      if (dateTo) params.set('to', dateTo);
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      const res = await apiClient.get<{ success: boolean; data: { summary: PayoutSummary } }>(`/payouts/summary${qs}`);
+      if (res.success && res.data?.summary) {
+        setSummary(res.data.summary);
+      }
+    } catch (err) {
+      console.error('Failed to fetch payout summary:', err);
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, [dateFrom, dateTo]);
+
+  useEffect(() => {
+    if (activeTab === 'payouts') fetchSummary();
+  }, [activeTab, fetchSummary]);
+
+  // ── Fetch creator detail ───────────────────────────────────
+  const fetchCreatorDetail = useCallback(async (creatorId: string) => {
+    try {
+      setDetailLoading(true);
+      const [availRes, ledgerRes, historyRes] = await Promise.all([
+        apiClient.get<{ success: boolean; data: { payout: PayoutAvailable } }>(`/creators/${creatorId}/payout/available`),
+        apiClient.get<{ success: boolean; data: { ledger: LedgerEntry[] } }>(`/creators/${creatorId}/payout/ledger`),
+        apiClient.get<{ success: boolean; data: { history: PayoutHistoryItem[] } }>(`/creators/${creatorId}/payout/history`),
+      ]);
+      setPayoutData(availRes.data?.payout ?? null);
+      setLedger(ledgerRes.data?.ledger ?? []);
+      setHistory(historyRes.data?.history ?? []);
+    } catch (err) {
+      console.error('Failed to fetch creator payout data:', err);
+      setPayoutData(null);
+      setLedger([]);
+      setHistory([]);
+    } finally {
+      setDetailLoading(false);
+    }
+  }, []);
+
+  const openCreatorDetail = (creator: CreatorListItem) => {
+    setSelectedCreator(creator);
+    setShowDetail(true);
+    setDetailTab('history');
+    setPayoutSuccess(null);
+    setPayoutError(null);
+    fetchCreatorDetail(creator.id);
+  };
+
+  const closeDetail = () => {
+    setShowDetail(false);
+    setSelectedCreator(null);
+    setPayoutData(null);
+    setLedger([]);
+    setHistory([]);
+  };
+
+  // ── Initiate payout ────────────────────────────────────────
+  const handleInitiatePayout = async () => {
+    if (!selectedCreator) return;
+    try {
+      setPayoutProcessing(true);
+      setPayoutError(null);
+      setPayoutSuccess(null);
+      const body: Record<string, string> = {};
+      if (payoutAmount.trim()) body.amount = payoutAmount.trim();
+      const res = await apiClient.post<{ success: boolean; data: { payout: { success: boolean; payoutId: string; amount: string; commissionsIncluded: number } }; error?: string }>(
+        `/creators/${selectedCreator.id}/payout/initiate`,
+        body,
+      );
+      if (res.success && res.data?.payout) {
+        setPayoutSuccess(`Payout of ${fmt(res.data.payout.amount)} initiated (${res.data.payout.commissionsIncluded} commissions). ID: ${res.data.payout.payoutId}`);
+        setShowPayoutModal(false);
+        setPayoutAmount('');
+        // Refresh data
+        fetchCreatorDetail(selectedCreator.id);
+      } else {
+        setPayoutError(res.error || 'Payout failed');
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || err?.message || 'Payout failed';
+      setPayoutError(msg);
+    } finally {
+      setPayoutProcessing(false);
+    }
+  };
+
+  // ── Fetch payment config ───────────────────────────────────
+  const fetchConfig = useCallback(async () => {
+    try {
+      setConfigLoading(true);
+      const res = await apiClient.get<{ success: boolean; data: { config: PaymentConfig } }>('/payment-config');
+      if (res.success && res.data?.config) {
+        setConfig(res.data.config);
+        setConfigForm({
+          payoutWindowDays: res.data.config.payoutWindowDays,
+          payoutDayOfMonth: res.data.config.payoutDayOfMonth,
+          minPayoutAmount: res.data.config.minPayoutAmount,
+          defaultCurrency: res.data.config.defaultCurrency,
+          disqualifyingOrderStatuses: res.data.config.disqualifyingOrderStatuses.join(', '),
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch payment config:', err);
+    } finally {
+      setConfigLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchInput);
-      setPage(1);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [searchInput]);
+    if (activeTab === 'settings') fetchConfig();
+  }, [activeTab, fetchConfig]);
 
-  useEffect(() => {
-    filterPayouts();
-  }, [activeTab, debouncedSearch, page]);
+  // ── Save payment config ────────────────────────────────────
+  const handleSaveConfig = async () => {
+    try {
+      setConfigSaving(true);
+      setConfigMsg(null);
+      const body: Record<string, any> = {};
+      if (configForm.payoutWindowDays !== config?.payoutWindowDays) body.payoutWindowDays = configForm.payoutWindowDays;
+      if (configForm.payoutDayOfMonth !== config?.payoutDayOfMonth) body.payoutDayOfMonth = configForm.payoutDayOfMonth;
+      if (configForm.minPayoutAmount !== config?.minPayoutAmount) body.minPayoutAmount = configForm.minPayoutAmount;
+      if (configForm.defaultCurrency !== config?.defaultCurrency) body.defaultCurrency = configForm.defaultCurrency;
+      const statuses = configForm.disqualifyingOrderStatuses.split(',').map(s => s.trim()).filter(Boolean);
+      if (JSON.stringify(statuses) !== JSON.stringify(config?.disqualifyingOrderStatuses)) body.disqualifyingOrderStatuses = statuses;
 
-  const fetchPayouts = async () => {
-    setLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setPayouts(mockPayouts);
-    setLoading(false);
-  };
+      if (Object.keys(body).length === 0) {
+        setConfigMsg({ type: 'error', text: 'No changes to save' });
+        return;
+      }
 
-  const filterPayouts = () => {
-    let filtered = mockPayouts.filter(p => p.status === activeTab);
-    
-    if (debouncedSearch) {
-      const search = debouncedSearch.toLowerCase();
-      filtered = filtered.filter(p => 
-        p.affiliateName.toLowerCase().includes(search) ||
-        p.affiliateEmail.toLowerCase().includes(search) ||
-        p.transactionId?.toLowerCase().includes(search)
-      );
+      const res = await apiClient.put<{ success: boolean; data: { config: PaymentConfig } }>('/payment-config', body);
+      if (res.success && res.data?.config) {
+        setConfig(res.data.config);
+        setConfigForm({
+          payoutWindowDays: res.data.config.payoutWindowDays,
+          payoutDayOfMonth: res.data.config.payoutDayOfMonth,
+          minPayoutAmount: res.data.config.minPayoutAmount,
+          defaultCurrency: res.data.config.defaultCurrency,
+          disqualifyingOrderStatuses: res.data.config.disqualifyingOrderStatuses.join(', '),
+        });
+        setConfigMsg({ type: 'success', text: 'Payment configuration saved successfully' });
+      }
+    } catch (err: any) {
+      setConfigMsg({ type: 'error', text: err?.response?.data?.error || 'Failed to save config' });
+    } finally {
+      setConfigSaving(false);
     }
-    
-    setPayouts(filtered);
   };
 
-  const getCurrentTime = () => {
-    const now = new Date();
-    return now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-  };
-
-  const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  };
-
-  const formatCurrency = (amount: number) => {
-    return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
-
-  const formatPeriod = (start: number, end: number) => {
-    const startDate = new Date(start);
-    const endDate = new Date(end);
-    return `${startDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} - ${endDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`;
-  };
-
-  const getStatusBadge = (status: PayoutStatus) => {
-    const styles: Record<PayoutStatus, { bg: string; text: string; label: string }> = {
-      issued: { bg: 'bg-amber-50', text: 'text-amber-600', label: 'Issued' },
-      processed: { bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'Processed' },
-      pending: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Pending' },
-      failed: { bg: 'bg-red-50', text: 'text-red-600', label: 'Failed' },
-    };
-    const style = styles[status];
+  // ── Derived: filter payouts client-side by search ──────────
+  const filteredPayouts = payouts.filter(p => {
+    if (!debouncedSearch) return true;
+    const q = debouncedSearch.toLowerCase();
     return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium ${style.bg} ${style.text}`}>
-        {style.label}
-      </span>
+      p.affiliate.name.toLowerCase().includes(q) ||
+      p.affiliate.email.toLowerCase().includes(q) ||
+      p.id.toLowerCase().includes(q)
     );
-  };
+  });
 
-  const handleViewDetails = (payout: Payout) => {
-    setSelectedPayout(payout);
-    setShowDetailModal(true);
-  };
-
-  const handleMarkAsProcessed = async (payoutId: string) => {
-    // API call would go here
-    const updatedPayouts = mockPayouts.map(p => 
-      p.id === payoutId 
-        ? { ...p, status: 'processed' as PayoutStatus, processedAt: Date.now(), transactionId: `TXN${Date.now()}` }
-        : p
-    );
-    setPayouts(updatedPayouts.filter(p => p.status === activeTab));
-    setShowDetailModal(false);
-  };
-
-  // Pagination
-  const filteredPayouts = payouts;
-  const totalPages = Math.ceil(filteredPayouts.length / pageSize);
-  const paginatedPayouts = filteredPayouts.slice((page - 1) * pageSize, page * pageSize);
-
-  // Stats
-  const issuedTotal = mockPayouts.filter(p => p.status === 'issued').reduce((sum, p) => sum + p.amount, 0);
-  const processedTotal = mockPayouts.filter(p => p.status === 'processed').reduce((sum, p) => sum + p.amount, 0);
-  const issuedCount = mockPayouts.filter(p => p.status === 'issued').length;
-  const processedCount = mockPayouts.filter(p => p.status === 'processed').length;
+  // ────────────────────────────────────────────────────────────
+  // Render
+  // ────────────────────────────────────────────────────────────
 
   return (
     <DashboardLayout>
@@ -368,66 +348,106 @@ export default function PayoutsPage() {
         <div className="flex items-center gap-4 mb-6">
           <h1 className="text-2xl font-semibold text-gray-900">Payouts</h1>
           <span className="text-sm text-gray-500">
-            Last refreshed: {mounted ? getCurrentTime() : '11:56 AM'}
+            Last refreshed: {mounted ? new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : '—'}
           </span>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Issued Payouts</p>
-                <p className="text-2xl font-semibold text-gray-900">{formatCurrency(issuedTotal)}</p>
-                <p className="text-xs text-gray-500 mt-1">{issuedCount} payouts pending</p>
+        {/* Summary Cards */}
+        <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
+          {/* Date Filter Row */}
+          <div className="flex items-center gap-3 mb-4">
+            <Calendar className="h-4 w-4 text-gray-400" />
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={e => setDateFrom(e.target.value)}
+              className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+            />
+            <span className="text-sm text-gray-400">to</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={e => setDateTo(e.target.value)}
+              className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+            />
+            {(dateFrom || dateTo) && (
+              <button
+                onClick={() => { setDateFrom(''); setDateTo(''); }}
+                className="text-xs text-gray-500 hover:text-gray-700 underline"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          {summaryLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="rounded-xl border border-gray-100 p-5 animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded w-28 mb-3" />
+                  <div className="h-8 bg-gray-200 rounded w-36 mb-2" />
+                  <div className="h-3 bg-gray-100 rounded w-24" />
+                </div>
+              ))}
+            </div>
+          ) : summary ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Issued Payouts */}
+              <div className="rounded-xl border border-gray-100 p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Issued Payouts</p>
+                    <p className="text-3xl font-semibold text-gray-900">{fmt(summary.totalEligible)}</p>
+                    <p className="text-sm text-gray-500 mt-1">{summary.totalEligibleCount} payouts pending</p>
+                  </div>
+                  <div className="h-10 w-10 rounded-full bg-amber-400" />
+                </div>
               </div>
-              <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center">
-                <div className="w-6 h-6 rounded-full bg-amber-400"></div>
+              {/* Processed Payouts */}
+              <div className="rounded-xl border border-gray-100 p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Processed Payouts</p>
+                    <p className="text-3xl font-semibold text-gray-900">{fmt(summary.totalPaidOut)}</p>
+                    <p className="text-sm text-emerald-600 mt-1">{summary.totalPaidOutCount} payouts completed</p>
+                  </div>
+                  <div className="h-10 w-10 rounded-full bg-emerald-400" />
+                </div>
+              </div>
+              {/* Pending */}
+              <div className="rounded-xl border border-gray-100 p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Pending</p>
+                    <p className="text-3xl font-semibold text-gray-900">{fmt(summary.totalPending)}</p>
+                    <p className="text-sm text-gray-500 mt-1">{summary.totalPendingCount} within payout window</p>
+                  </div>
+                  <div className="h-10 w-10 rounded-full bg-blue-400" />
+                </div>
               </div>
             </div>
-          </div>
-          <div className="bg-white rounded-xl p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Processed Payouts</p>
-                <p className="text-2xl font-semibold text-gray-900">{formatCurrency(processedTotal)}</p>
-                <p className="text-xs text-gray-500 mt-1">{processedCount} payouts completed</p>
-              </div>
-              <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center">
-                <div className="w-6 h-6 rounded-full bg-emerald-400"></div>
-              </div>
-            </div>
-          </div>
+          ) : null}
         </div>
 
-        {/* Tabs and Search Row */}
+        {/* Tabs + Search Row */}
         <div className="flex items-center justify-between mb-6">
-          {/* Tabs */}
           <div className="flex items-center gap-1">
             <button
-              onClick={() => { setActiveTab('issued'); setPage(1); }}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'issued'
-                  ? 'border-gray-900 text-gray-900'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+              onClick={() => setActiveTab('payouts')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'payouts' ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
             >
-              Issued
+              <span className="flex items-center gap-2"><Wallet className="h-4 w-4" />Payouts</span>
             </button>
             <button
-              onClick={() => { setActiveTab('processed'); setPage(1); }}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'processed'
-                  ? 'border-gray-900 text-gray-900'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+              onClick={() => setActiveTab('settings')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'settings' ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
             >
-              Processed
+              <span className="flex items-center gap-2"><Settings className="h-4 w-4" />Payment Settings</span>
             </button>
           </div>
 
-          {/* Search and Actions */}
-          <div className="flex items-center gap-3">
+          {/* Search — only on payouts tab */}
+          {activeTab === 'payouts' && (
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
@@ -435,244 +455,518 @@ export default function PayoutsPage() {
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Search by name or transaction ID"
-                className="pl-10 pr-4 py-2 w-72 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                className="pl-10 pr-4 py-2 w-80 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
               />
             </div>
-            <button 
-              onClick={() => setShowFilterDrawer(true)}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
-            >
-              <SlidersHorizontal className="h-4 w-4" />
-              Filters
-            </button>
-            <button className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
-              <ArrowUpDown className="h-4 w-4" />
-              Sort By
-            </button>
-            <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">
-              <Download className="h-4 w-4" />
-              Export
-            </button>
-          </div>
+          )}
         </div>
 
-        {/* Content */}
-        {loading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-10 w-10 border-2 border-gray-200 border-t-[#EAC312]"></div>
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Affiliate</th>
-                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Period</th>
-                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Orders</th>
-                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Amount</th>
-                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Payment Method</th>
-                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">
-                    {activeTab === 'issued' ? 'Issued Date' : 'Processed Date'}
-                  </th>
-                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Status</th>
-                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedPayouts.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="py-12 text-center text-gray-500">
-                      No payouts found
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedPayouts.map((payout) => (
-                    <tr 
-                      key={payout.id} 
-                      className="border-b border-gray-50 hover:bg-gray-50"
-                    >
-                      <td className="py-4 px-6">
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{payout.affiliateName}</p>
-                          <p className="text-xs text-gray-500">{payout.affiliateEmail}</p>
-                        </div>
-                      </td>
-                      <td className="py-4 px-6 text-sm text-gray-600">
-                        {formatPeriod(payout.periodStart, payout.periodEnd)}
-                      </td>
-                      <td className="py-4 px-6 text-sm text-gray-900">
-                        {payout.ordersCount}
-                      </td>
-                      <td className="py-4 px-6 text-sm font-medium text-gray-900">
-                        {formatCurrency(payout.amount)}
-                      </td>
-                      <td className="py-4 px-6">
-                        <div>
-                          <p className="text-sm text-gray-900">{payout.paymentMethod}</p>
-                          {payout.bankDetails && (
-                            <p className="text-xs text-gray-500">{payout.bankDetails.bankName} {payout.bankDetails.accountNumber}</p>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-4 px-6 text-sm text-gray-600">
-                        {formatDate(activeTab === 'issued' ? payout.issuedAt : (payout.processedAt || payout.issuedAt))}
-                      </td>
-                      <td className="py-4 px-6">
-                        {getStatusBadge(payout.status)}
-                      </td>
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleViewDetails(payout)}
-                            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
-                            title="View Details"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          {activeTab === 'issued' && (
-                            <button
-                              onClick={() => handleMarkAsProcessed(payout.id)}
-                              className="px-3 py-1.5 text-xs font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800"
-                            >
-                              Mark Processed
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-            
-            {/* Pagination */}
-            <div className="flex items-center justify-end gap-2 py-4 px-6 border-t border-gray-100">
+        {/* ─── Payouts Tab ─── */}
+        {activeTab === 'payouts' && (
+          <>
+            {/* Issued / Processed Sub-tabs */}
+            <div className="flex items-center gap-1 mb-4">
               <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                onClick={() => setPayoutSubTab('issued')}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${payoutSubTab === 'issued' ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
               >
-                <ChevronLeft className="h-5 w-5" />
+                Issued
               </button>
-              <span className="text-sm text-gray-600">
-                Page {page}/{totalPages || 1}
-              </span>
               <button
-                onClick={() => setPage(p => Math.min(totalPages || 1, p + 1))}
-                disabled={page === totalPages || totalPages === 0}
-                className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                onClick={() => setPayoutSubTab('processed')}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${payoutSubTab === 'processed' ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
               >
-                <ChevronRight className="h-5 w-5" />
+                Processed
               </button>
             </div>
+
+            {payoutsLoading ? (
+              <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-10 w-10 border-2 border-gray-200 border-t-[#EAC312]" />
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Affiliate</th>
+                      <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Orders</th>
+                      <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Amount</th>
+                      <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Payment Method</th>
+                      <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">{payoutSubTab === 'issued' ? 'Issued Date' : 'Processed Date'}</th>
+                      <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Status</th>
+                      <th className="text-left py-4 px-6 text-sm font-medium text-gray-500">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredPayouts.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-12 text-center text-gray-500">No payouts found</td>
+                      </tr>
+                    ) : (
+                      filteredPayouts.map((p) => (
+                        <tr
+                          key={p.id}
+                          className="border-b border-gray-50 hover:bg-gray-50"
+                        >
+                          <td className="py-4 px-6">
+                            <p className="text-sm font-medium text-gray-900">{p.affiliate.name}</p>
+                            <p className="text-xs text-gray-500">{p.affiliate.email}</p>
+                          </td>
+                          <td className="py-4 px-6 text-sm text-gray-600">
+                            {p.ordersCount}
+                          </td>
+                          <td className="py-4 px-6 text-sm font-medium text-gray-900">
+                            {fmt(p.amount)}
+                          </td>
+                          <td className="py-4 px-6">
+                            <p className="text-sm text-gray-900">{p.paymentMethod.type === 'bank' ? 'Bank Transfer' : p.paymentMethod.type === 'upi' ? 'UPI' : p.paymentMethod.type}</p>
+                            <p className="text-xs text-gray-500">{p.paymentMethod.details}</p>
+                          </td>
+                          <td className="py-4 px-6 text-sm text-gray-600">
+                            {payoutSubTab === 'issued' && p.issuedDate ? fmtDate(p.issuedDate) : ''}
+                            {payoutSubTab === 'processed' && p.processedDate ? fmtDate(p.processedDate) : ''}
+                          </td>
+                          <td className="py-4 px-6">
+                            {(() => {
+                              const s = p.status.toLowerCase();
+                              if (s === 'completed' || s === 'processed') return <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-600">Processed</span>;
+                              if (s === 'processing' || s === 'issued') return <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-600">Issued</span>;
+                              if (s === 'failed') return <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-red-50 text-red-600">Failed</span>;
+                              return <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-600">{p.status}</span>;
+                            })()}
+                          </td>
+                          <td className="py-4 px-6">
+                            <button
+                              onClick={() => {
+                                // Open detail slide-over for this affiliate
+                                const fakeCreator = { id: p.affiliate.id, name: p.affiliate.name, email: p.affiliate.email } as CreatorListItem;
+                                openCreatorDetail(fakeCreator);
+                              }}
+                              className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+                              title="View payout details"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ─── Payment Settings Tab ─── */}
+        {activeTab === 'settings' && (
+          <div className="bg-white rounded-xl shadow-sm p-6 max-w-2xl">
+            {configLoading ? (
+              <div className="flex justify-center items-center h-48">
+                <div className="animate-spin rounded-full h-10 w-10 border-2 border-gray-200 border-t-[#EAC312]" />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-lg font-semibold text-gray-900">Payment Configuration</h2>
+                  {config && (
+                    <p className="text-xs text-gray-400">
+                      Last updated: {fmtDateLong(config.updatedAt)} by {config.updatedBy}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-5">
+                  {/* Payout Window Days */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Payout Window (days after fulfillment)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={90}
+                      value={configForm.payoutWindowDays}
+                      onChange={(e) => setConfigForm({ ...configForm, payoutWindowDays: parseInt(e.target.value) || 0 })}
+                      className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">Days after order fulfillment before commission becomes eligible (0–90)</p>
+                  </div>
+
+                  {/* Payout Day of Month */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Payout Day of Month</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={28}
+                      value={configForm.payoutDayOfMonth}
+                      onChange={(e) => setConfigForm({ ...configForm, payoutDayOfMonth: parseInt(e.target.value) || 1 })}
+                      className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">Day of month when payouts can be processed (1–28)</p>
+                  </div>
+
+                  {/* Minimum Payout Amount */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Minimum Payout Amount (₹)</label>
+                    <input
+                      type="text"
+                      value={configForm.minPayoutAmount}
+                      onChange={(e) => setConfigForm({ ...configForm, minPayoutAmount: e.target.value })}
+                      className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                    />
+                  </div>
+
+                  {/* Default Currency */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Default Currency</label>
+                    <input
+                      type="text"
+                      value={configForm.defaultCurrency}
+                      onChange={(e) => setConfigForm({ ...configForm, defaultCurrency: e.target.value.toUpperCase() })}
+                      className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                    />
+                  </div>
+
+                  {/* Disqualifying Order Statuses */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Disqualifying Order Statuses</label>
+                    <input
+                      type="text"
+                      value={configForm.disqualifyingOrderStatuses}
+                      onChange={(e) => setConfigForm({ ...configForm, disqualifyingOrderStatuses: e.target.value })}
+                      className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">Comma-separated list of order statuses that disqualify commissions</p>
+                  </div>
+
+                  {/* Status message */}
+                  {configMsg && (
+                    <div className={`flex items-center gap-2 p-3 rounded-lg text-sm ${configMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+                      {configMsg.type === 'success' ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                      {configMsg.text}
+                    </div>
+                  )}
+
+                  {/* Save button */}
+                  <button
+                    onClick={handleSaveConfig}
+                    disabled={configSaving}
+                    className="flex items-center gap-2 px-6 py-2.5 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {configSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    {configSaving ? 'Saving...' : 'Save Configuration'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
 
-      {/* Payout Details Modal */}
-      {showDetailModal && selectedPayout && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">Payout Details</h2>
-              <button
-                onClick={() => setShowDetailModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                ✕
+      {/* ─── Creator Detail Slide-over ─── */}
+      {showDetail && selectedCreator && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/40" onClick={closeDetail} />
+
+          {/* Panel */}
+          <div className="relative w-full max-w-2xl bg-white shadow-2xl overflow-y-auto animate-slide-in">
+            {/* Header */}
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between z-10">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">{selectedCreator.name}</h2>
+                <p className="text-sm text-gray-500">{selectedCreator.email}</p>
+              </div>
+              <button onClick={closeDetail} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {detailLoading ? (
+              <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-10 w-10 border-2 border-gray-200 border-t-[#EAC312]" />
+              </div>
+            ) : (
+              <div className="px-6 py-5 space-y-6">
+                {/* Summary Cards */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-emerald-50 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Wallet className="h-4 w-4 text-emerald-600" />
+                      <span className="text-xs font-medium text-emerald-700">Available</span>
+                    </div>
+                    <p className="text-2xl font-semibold text-emerald-700">{fmt(payoutData?.available?.amount ?? '0')}</p>
+                    <p className="text-xs text-emerald-600 mt-1">{payoutData?.available?.eligibleCommissions ?? 0} eligible commissions</p>
+                  </div>
+                  <div className="bg-amber-50 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Clock className="h-4 w-4 text-amber-600" />
+                      <span className="text-xs font-medium text-amber-700">Pending</span>
+                    </div>
+                    <p className="text-2xl font-semibold text-amber-700">{fmt(payoutData?.pending?.amount ?? '0')}</p>
+                    <p className="text-xs text-amber-600 mt-1">{payoutData?.pending?.commissionsWithinWindow ?? 0} orders in window</p>
+                  </div>
+                </div>
+
+                {/* Payout action area */}
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {payoutData?.canPayout ? 'Ready to pay' : 'Cannot initiate payout'}
+                      </p>
+                      {payoutData?.reason && (
+                        <p className="text-xs text-gray-500 mt-0.5">{payoutData.reason}</p>
+                      )}
+                      {!payoutData?.hasPaymentMethod && (
+                        <p className="text-xs text-red-500 mt-0.5">No payment method configured</p>
+                      )}
+                      {payoutData?.nextPayoutDate && (
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Next payout available: {new Date(payoutData.nextPayoutDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => { setPayoutAmount(''); setPayoutError(null); setShowPayoutModal(true); }}
+                      disabled={!payoutData?.canPayout}
+                      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <Send className="h-4 w-4" />
+                      Initiate Payout
+                    </button>
+                  </div>
+
+                  {/* Success/Error messages */}
+                  {payoutSuccess && (
+                    <div className="mt-3 flex items-center gap-2 p-3 rounded-lg text-sm bg-emerald-50 text-emerald-700">
+                      <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                      <span>{payoutSuccess}</span>
+                    </div>
+                  )}
+                  {payoutError && !showPayoutModal && (
+                    <div className="mt-3 flex items-center gap-2 p-3 rounded-lg text-sm bg-red-50 text-red-700">
+                      <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                      <span>{payoutError}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Deductions info */}
+                {payoutData?.available?.deductions && parseFloat(payoutData.available.deductions) > 0 && (
+                  <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 rounded-lg px-4 py-2">
+                    <IndianRupee className="h-3 w-3" />
+                    Deductions: {fmt(payoutData.available.deductions)}
+                    {payoutData.available.carryForwardDeduction && parseFloat(payoutData.available.carryForwardDeduction) > 0 && (
+                      <span> (Carry-forward: {fmt(payoutData.available.carryForwardDeduction)})</span>
+                    )}
+                  </div>
+                )}
+
+                {/* Sub-tabs: Overview / Ledger / History */}
+                <div className="border-b border-gray-200">
+                  <div className="flex gap-1">
+                    {(['overview', 'ledger', 'history'] as const).map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => setDetailTab(t)}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors capitalize ${detailTab === t ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                      >
+                        {t === 'overview' ? 'Overview' : t === 'ledger' ? 'Earnings Ledger' : 'Payout History'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Overview sub-tab */}
+                {detailTab === 'overview' && payoutData && (
+                  <div className="space-y-3">
+                    <div className="flex justify-between py-2 border-b border-gray-100">
+                      <span className="text-sm text-gray-500">Creator ID</span>
+                      <span className="text-sm font-mono text-gray-700">{payoutData.creatorId}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-gray-100">
+                      <span className="text-sm text-gray-500">Currency</span>
+                      <span className="text-sm text-gray-700">{payoutData.available.currency}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-gray-100">
+                      <span className="text-sm text-gray-500">Has Payment Method</span>
+                      <span className={`text-sm font-medium ${payoutData.hasPaymentMethod ? 'text-emerald-600' : 'text-red-500'}`}>
+                        {payoutData.hasPaymentMethod ? 'Yes' : 'No'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-gray-100">
+                      <span className="text-sm text-gray-500">Can Payout</span>
+                      <span className={`text-sm font-medium ${payoutData.canPayout ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        {payoutData.canPayout ? 'Yes' : 'No'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Ledger sub-tab */}
+                {detailTab === 'ledger' && (
+                  <div className="space-y-2">
+                    {ledger.length === 0 ? (
+                      <p className="text-sm text-gray-500 text-center py-8">No earnings records found</p>
+                    ) : (
+                      ledger.map((entry) => (
+                        <div key={entry.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-900">{entry.orderNumber}</span>
+                              {ledgerStatusBadge(entry.isEligible, entry.status)}
+                            </div>
+                            <div className="flex items-center gap-3 mt-1">
+                              <span className="text-xs text-gray-500">Basis: {fmt(entry.basisAmount)}</span>
+                              {entry.deductedAmount && parseFloat(entry.deductedAmount) > 0 && (
+                                <span className="text-xs text-red-500">Deduction: {fmt(entry.deductedAmount)}</span>
+                              )}
+                              {entry.eligibleAt && (
+                                <span className="text-xs text-gray-400">
+                                  {entry.isEligible ? `Eligible since ${fmtDate(entry.eligibleAt)}` : `Eligible on ${fmtDate(entry.eligibleAt)}`}
+                                </span>
+                              )}
+                              {!entry.eligibleAt && !entry.isEligible && (
+                                <span className="text-xs text-gray-400">Awaiting fulfillment</span>
+                              )}
+                            </div>
+                          </div>
+                          <span className="text-sm font-semibold text-gray-900">{fmt(entry.commissionAmount)}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* History sub-tab */}
+                {detailTab === 'history' && (
+                  <div className="space-y-2">
+                    {history.length === 0 ? (
+                      <p className="text-sm text-gray-500 text-center py-8">No payout history found</p>
+                    ) : (
+                      history.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-900">{fmt(item.amount)}</span>
+                              {payoutStatusBadge(item.status)}
+                            </div>
+                            <div className="flex items-center gap-3 mt-1">
+                              <span className="text-xs text-gray-500">{item.commissionsCount} commissions</span>
+                              {item.deductionsAmount && parseFloat(item.deductionsAmount) > 0 && (
+                                <span className="text-xs text-red-500">Deductions: {fmt(item.deductionsAmount)}</span>
+                              )}
+                              <span className="text-xs text-gray-400">
+                                {item.initiatedByType === 'admin' ? 'By Admin' : 'By Creator'}
+                              </span>
+                              <span className="text-xs text-gray-400">{fmtDate(item.createdAt)}</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-xs font-mono text-gray-400 block">{item.id.slice(0, 16)}...</span>
+                            {item.processedAt && (
+                              <span className="text-xs text-gray-400">Processed {fmtDate(item.processedAt)}</span>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* Refresh detail data */}
+                <div className="flex justify-center pt-2">
+                  <button
+                    onClick={() => selectedCreator && fetchCreatorDetail(selectedCreator.id)}
+                    className="flex items-center gap-2 px-4 py-2 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    Refresh data
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ─── Initiate Payout Confirmation Modal ─── */}
+      {showPayoutModal && selectedCreator && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Initiate Payout</h3>
+              <button onClick={() => setShowPayoutModal(false)} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
+                <X className="h-5 w-5" />
               </button>
             </div>
 
             <div className="space-y-4">
-              <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                <span className="text-sm text-gray-500">Affiliate</span>
-                <div className="text-right">
-                  <p className="text-sm font-medium text-gray-900">{selectedPayout.affiliateName}</p>
-                  <p className="text-xs text-gray-500">{selectedPayout.affiliateEmail}</p>
+              <div className="bg-emerald-50 rounded-lg p-4 text-center">
+                <p className="text-xs text-emerald-600 mb-1">Available amount</p>
+                <p className="text-2xl font-bold text-emerald-700">{fmt(payoutData?.available?.amount ?? '0')}</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Payout Amount (leave empty to pay full available amount)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₹</span>
+                  <input
+                    type="text"
+                    value={payoutAmount}
+                    onChange={(e) => setPayoutAmount(e.target.value)}
+                    placeholder={payoutData?.available?.amount ?? '0.00'}
+                    className="w-full pl-8 pr-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  />
                 </div>
               </div>
 
-              <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                <span className="text-sm text-gray-500">Amount</span>
-                <span className="text-lg font-semibold text-gray-900">{formatCurrency(selectedPayout.amount)}</span>
-              </div>
+              <p className="text-xs text-gray-500">
+                This will initiate a payout for <strong>{selectedCreator.name}</strong> via Razorpay. The amount will be transferred to their configured payment method.
+              </p>
 
-              <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                <span className="text-sm text-gray-500">Period</span>
-                <span className="text-sm text-gray-900">{formatPeriod(selectedPayout.periodStart, selectedPayout.periodEnd)}</span>
-              </div>
-
-              <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                <span className="text-sm text-gray-500">Orders</span>
-                <span className="text-sm text-gray-900">{selectedPayout.ordersCount} orders</span>
-              </div>
-
-              <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                <span className="text-sm text-gray-500">Payment Method</span>
-                <div className="text-right">
-                  <p className="text-sm text-gray-900">{selectedPayout.paymentMethod}</p>
-                  {selectedPayout.bankDetails && (
-                    <p className="text-xs text-gray-500">{selectedPayout.bankDetails.bankName} {selectedPayout.bankDetails.accountNumber}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                <span className="text-sm text-gray-500">Status</span>
-                {getStatusBadge(selectedPayout.status)}
-              </div>
-
-              <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                <span className="text-sm text-gray-500">Issued Date</span>
-                <span className="text-sm text-gray-900">{formatDate(selectedPayout.issuedAt)}</span>
-              </div>
-
-              {selectedPayout.processedAt && (
-                <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                  <span className="text-sm text-gray-500">Processed Date</span>
-                  <span className="text-sm text-gray-900">{formatDate(selectedPayout.processedAt)}</span>
-                </div>
-              )}
-
-              {selectedPayout.transactionId && (
-                <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                  <span className="text-sm text-gray-500">Transaction ID</span>
-                  <span className="text-sm font-mono text-gray-900">{selectedPayout.transactionId}</span>
+              {payoutError && (
+                <div className="flex items-center gap-2 p-3 rounded-lg text-sm bg-red-50 text-red-700">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  <span>{payoutError}</span>
                 </div>
               )}
             </div>
 
             <div className="mt-6 flex gap-3">
-              {selectedPayout.status === 'issued' && (
-                <button
-                  onClick={() => handleMarkAsProcessed(selectedPayout.id)}
-                  className="flex-1 py-3 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-800"
-                >
-                  Mark as Processed
-                </button>
-              )}
               <button
-                onClick={() => setShowDetailModal(false)}
-                className={`${selectedPayout.status === 'issued' ? '' : 'flex-1'} py-3 px-6 text-sm font-medium text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50`}
+                onClick={handleInitiatePayout}
+                disabled={payoutProcessing}
+                className="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Close
+                {payoutProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {payoutProcessing ? 'Processing...' : 'Confirm Payout'}
+              </button>
+              <button
+                onClick={() => setShowPayoutModal(false)}
+                className="px-6 py-3 text-sm font-medium text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50"
+              >
+                Cancel
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Filter Drawer */}
-      <FilterDrawer
-        isOpen={showFilterDrawer}
-        onClose={() => setShowFilterDrawer(false)}
-        title="Filter Payouts"
-        filters={payoutFilters}
-        values={filterValues}
-        onApply={handleApplyFilters}
-        onReset={handleResetFilters}
-      />
+      {/* Slide-in animation */}
+      <style jsx>{`
+        @keyframes slideIn {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
+        }
+        .animate-slide-in {
+          animation: slideIn 0.25s ease-out;
+        }
+      `}</style>
     </DashboardLayout>
   );
 }
-

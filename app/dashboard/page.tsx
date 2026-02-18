@@ -22,12 +22,14 @@ import {
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
+  ArcElement,
   Title,
   Tooltip,
   Filler,
   Legend,
 } from 'chart.js';
-import { Line } from 'react-chartjs-2';
+import { Line, Bar, Doughnut } from 'react-chartjs-2';
 
 // Register Chart.js components
 ChartJS.register(
@@ -35,6 +37,8 @@ ChartJS.register(
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
+  ArcElement,
   Title,
   Tooltip,
   Filler,
@@ -638,40 +642,164 @@ export default function DashboardPage() {
                   <Share2 className="h-4 w-4" />
                   <span>Total sales by social channels</span>
                 </div>
-                <div className="space-y-1">
-                  {stats.salesBySocialChannel && Object.keys(stats.salesBySocialChannel).length > 0 ? (
-                    (() => {
-                      const channels = Object.entries(stats.salesBySocialChannel)
-                        .map(([key, value]: [string, any]) => {
-                          const isNumber = typeof value === 'number';
-                          const sales = isNumber
-                            ? value
-                            : (value?.revenue ?? value?.sales ?? 0);
-                          const orders = isNumber ? 0 : (value?.orders ?? 0);
-                          return {
-                            key,
-                            name: key,
-                            sales,
-                            orders,
-                          };
-                        })
-                        .sort((a, b) => b.sales - a.sales);
-                      const maxSales = channels.length > 0 ? Math.max(...channels.map(c => c.sales)) : 1;
-                      return channels.map((channel, index) => (
-                        <DataRow
-                          key={channel.key}
-                          name={channel.name}
-                          value={channel.sales}
-                          subtitle={channel.orders ? `${channel.orders} ${channel.orders === 1 ? 'order' : 'orders'}` : undefined}
-                          percentage={0}
-                          barWidth={maxSales > 0 ? (channel.sales / maxSales) * 100 : 0}
-                        />
-                      ));
-                    })()
-                  ) : (
-                    <div className="text-sm text-gray-500 py-4 text-center">No social channel data available</div>
-                  )}
-                </div>
+                {stats.salesBySocialChannel && Object.keys(stats.salesBySocialChannel).length > 0 ? (
+                  (() => {
+                    const CHANNEL_COLORS = [
+                      '#EAC312', '#4A90A4', '#E87461', '#6C63FF',
+                      '#2ECC71', '#F39C12', '#E74C3C', '#3498DB',
+                    ];
+                    const channels = Object.entries(stats.salesBySocialChannel)
+                      .map(([key, value]: [string, any]) => {
+                        const isNumber = typeof value === 'number';
+                        const sales = isNumber ? value : (value?.revenue ?? value?.sales ?? 0);
+                        const orders = isNumber ? 0 : (value?.orders ?? 0);
+                        return { key, name: key, sales, orders };
+                      })
+                      .sort((a, b) => b.sales - a.sales);
+                    const totalSales = channels.reduce((sum, c) => sum + c.sales, 0);
+                    const totalOrders = channels.reduce((sum, c) => sum + c.orders, 0);
+
+                    const barData = {
+                      labels: channels.map(c => c.name.charAt(0).toUpperCase() + c.name.slice(1)),
+                      datasets: [{
+                        label: 'Sales (₹)',
+                        data: channels.map(c => c.sales),
+                        backgroundColor: channels.map((_, i) => CHANNEL_COLORS[i % CHANNEL_COLORS.length]),
+                        borderRadius: 6,
+                        barThickness: 28,
+                      }],
+                    };
+                    const barOptions = {
+                      indexAxis: 'y' as const,
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                          backgroundColor: 'rgba(0,0,0,0.85)',
+                          titleColor: '#fff',
+                          bodyColor: '#fff',
+                          padding: 12,
+                          cornerRadius: 8,
+                          callbacks: {
+                            label: (ctx: any) => {
+                              const ch = channels[ctx.dataIndex];
+                              return [
+                                `Sales: ₹${ch.sales.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                                ch.orders ? `Orders: ${ch.orders}` : '',
+                                totalSales > 0 ? `Share: ${((ch.sales / totalSales) * 100).toFixed(1)}%` : '',
+                              ].filter(Boolean);
+                            },
+                          },
+                        },
+                      },
+                      scales: {
+                        x: {
+                          grid: { color: '#F3F4F6' },
+                          border: { display: false },
+                          ticks: {
+                            color: '#9CA3AF',
+                            font: { size: 10 },
+                            callback: (value: string | number) => {
+                              const num = Number(value);
+                              if (num >= 100000) return `₹${(num / 100000).toFixed(1)}L`;
+                              if (num >= 1000) return `₹${(num / 1000).toFixed(1)}K`;
+                              return `₹${num}`;
+                            },
+                          },
+                        },
+                        y: {
+                          grid: { display: false },
+                          border: { display: false },
+                          ticks: {
+                            color: '#374151',
+                            font: { size: 12 },
+                          },
+                        },
+                      },
+                    };
+
+                    const doughnutData = {
+                      labels: channels.map(c => c.name.charAt(0).toUpperCase() + c.name.slice(1)),
+                      datasets: [{
+                        data: channels.map(c => c.orders || c.sales),
+                        backgroundColor: channels.map((_, i) => CHANNEL_COLORS[i % CHANNEL_COLORS.length]),
+                        borderWidth: 2,
+                        borderColor: '#fff',
+                        hoverOffset: 6,
+                      }],
+                    };
+                    const doughnutOptions = {
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      cutout: '65%',
+                      plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                          backgroundColor: 'rgba(0,0,0,0.85)',
+                          padding: 10,
+                          cornerRadius: 8,
+                          callbacks: {
+                            label: (ctx: any) => {
+                              const ch = channels[ctx.dataIndex];
+                              const orderStr = ch.orders ? `${ch.orders} orders` : '';
+                              const salesStr = `₹${ch.sales.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+                              return orderStr ? `${orderStr} · ${salesStr}` : salesStr;
+                            },
+                          },
+                        },
+                      },
+                    };
+
+                    return (
+                      <div>
+                        {/* Summary stats */}
+                        <div className="grid grid-cols-2 gap-3 mb-4">
+                          <div className="bg-gray-50 rounded-lg p-3">
+                            <div className="text-xs text-gray-500 mb-1">Total Channel Sales</div>
+                            <div className="text-lg font-semibold text-gray-900">
+                              ₹{totalSales.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                          </div>
+                          <div className="bg-gray-50 rounded-lg p-3">
+                            <div className="text-xs text-gray-500 mb-1">Total Orders</div>
+                            <div className="text-lg font-semibold text-gray-900">
+                              {totalOrders.toLocaleString('en-IN')}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Horizontal Bar Chart */}
+                        <div style={{ height: Math.max(channels.length * 44, 120) }}>
+                          <Bar data={barData} options={barOptions} />
+                        </div>
+
+                        {/* Doughnut + Legend */}
+                        <div className="flex items-center gap-4 mt-5 pt-4 border-t border-gray-100">
+                          <div className="w-28 h-28 flex-shrink-0">
+                            <Doughnut data={doughnutData} options={doughnutOptions} />
+                          </div>
+                          <div className="flex-1 grid grid-cols-2 gap-x-4 gap-y-2">
+                            {channels.map((ch, i) => (
+                              <div key={ch.key} className="flex items-center gap-2">
+                                <span
+                                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                                  style={{ backgroundColor: CHANNEL_COLORS[i % CHANNEL_COLORS.length] }}
+                                />
+                                <span className="text-xs text-gray-600 truncate capitalize">{ch.name}</span>
+                                <span className="text-xs font-medium text-gray-900 ml-auto">
+                                  {totalSales > 0 ? `${((ch.sales / totalSales) * 100).toFixed(1)}%` : '0%'}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <div className="text-sm text-gray-500 py-4 text-center">No social channel data available</div>
+                )}
               </div>
 
               {/* Sales by Product */}
