@@ -14,7 +14,10 @@ import {
   Instagram,
   Plus,
   X,
+  Box,
 } from 'lucide-react';
+import { CollectionOverrides } from '@/components/creators/CollectionOverrides';
+import { ShopifyProduct, ProductCollection } from '@/types';
 
 // Creator profile API response (profile, stats, coupons, etc.)
 interface CouponValue {
@@ -111,6 +114,10 @@ export default function AffiliateProfilePage() {
     commissionType: 'percentage' as 'percentage' | 'fixed' | string,
   });
 
+  // State for the aggregate derived Featured Products
+  const [resolvedProducts, setResolvedProducts] = useState<ShopifyProduct[]>([]);
+  const [loadingResolvedProducts, setLoadingResolvedProducts] = useState(false);
+
   const fetchProfile = useCallback(async () => {
     if (!affiliateId) return;
     try {
@@ -182,6 +189,62 @@ export default function AffiliateProfilePage() {
   useEffect(() => {
     fetchProfile();
   }, [fetchProfile]);
+
+  useEffect(() => {
+    const fetchAllResolvedProducts = async () => {
+      if (!affiliateId) return;
+      try {
+        setLoadingResolvedProducts(true);
+        // Step 1: Get all assigned collections
+        const collectionsRes = await apiClient.get<{ success: boolean; data: ProductCollection[] }>('/collections');
+
+        if (collectionsRes.success && collectionsRes.data) {
+          const allCollections = collectionsRes.data;
+
+          let allResolvedShopifyProducts: typeof resolvedProducts = [];
+
+          // Step 2: Fetch resolved products for all collections in parallel
+          const resolvedPromises = allCollections.map(col =>
+            apiClient.post<{ success: boolean; data: ShopifyProduct[] }>(
+              '/dashboard/admin/getResolvedProductsForCreator',
+              { creatorId: affiliateId, collectionId: col.id }
+            ).catch(err => {
+              console.error(`Failed resolving products for collection ${col.id}:`, err);
+              return { success: false, data: [] };
+            })
+          );
+
+          const resolvedResults = await Promise.all(resolvedPromises);
+
+          // Step 3: Aggregate all returned products
+          resolvedResults.forEach(res => {
+            if (res.success && res.data) {
+              allResolvedShopifyProducts = [...allResolvedShopifyProducts, ...res.data];
+            }
+          });
+
+          // Step 4: Deduplicate products by id
+          const uniqueProductsMap = new Map();
+          allResolvedShopifyProducts.forEach(p => {
+            if (!uniqueProductsMap.has(p.id)) {
+              uniqueProductsMap.set(p.id, p);
+            }
+          });
+
+          setResolvedProducts(Array.from(uniqueProductsMap.values()));
+        }
+      } catch (err) {
+        console.error('Failed to load resolved products globally:', err);
+      } finally {
+        setLoadingResolvedProducts(false);
+      }
+    };
+
+    // Fire this fetch on mount. Note: If explicit edits are made in 'CollectionOverrides'
+    // This top level state won't automatically sync unless the page is reloaded, which is reasonable
+    // for a dashboard CRM view. 
+    fetchAllResolvedProducts();
+  }, [affiliateId]);
 
   const getCurrentTime = () => {
     const now = new Date();
@@ -439,10 +502,10 @@ export default function AffiliateProfilePage() {
                                 {coupon.code}
                               </span>
                               <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${coupon.status === 'ACTIVE'
-                                  ? 'bg-green-100 text-green-700'
-                                  : coupon.status === 'EXPIRED'
-                                    ? 'bg-red-100 text-red-700'
-                                    : 'bg-gray-100 text-gray-600'
+                                ? 'bg-green-100 text-green-700'
+                                : coupon.status === 'EXPIRED'
+                                  ? 'bg-red-100 text-red-700'
+                                  : 'bg-gray-100 text-gray-600'
                                 }`}>
                                 {coupon.status}
                               </span>
@@ -533,8 +596,8 @@ export default function AffiliateProfilePage() {
                             {referralLink.referralCode}
                           </span>
                           <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${referralLink.active
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-gray-100 text-gray-600'
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-gray-100 text-gray-600'
                             }`}>
                             {referralLink.active ? 'Active' : 'Inactive'}
                           </span>
@@ -583,83 +646,57 @@ export default function AffiliateProfilePage() {
               </div>
             </div>
 
-            {/* Featured Collections */}
-            <div className="bg-white rounded-xl p-6 shadow-sm">
-              <h3 className="text-base font-medium text-gray-900 mb-4">Featured Collections</h3>
+            {/* Collection Overrides Component */}
+            <CollectionOverrides creatorId={affiliateId} />
 
-              <div className="space-y-3">
-                {collections.map((collection) => (
-                  <div key={collection.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{collection.name}</p>
-                      <p className="text-xs text-gray-500">{collection.url}</p>
-                    </div>
-                    <button
-                      onClick={() => handleRemoveCollection(collection.id)}
-                      className="text-sm text-red-600 hover:text-red-700"
+            {/* Global Read-Only Aggregate Products List */}
+            <div className="bg-white rounded-xl p-6 shadow-sm mt-6">
+              <h3 className="text-base font-medium text-gray-900 mb-4 flex items-center gap-2">
+                <Box className="w-5 h-5 text-gray-400" />
+                All Final Authorized Products
+              </h3>
+              <p className="text-sm text-gray-500 mb-5">
+                The comprehensive, deduplicated list of all products this specific creator can see and promote across all their collections.
+              </p>
+
+              {loadingResolvedProducts ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="h-16 bg-gray-50 rounded-lg animate-pulse w-full"></div>
+                  ))}
+                </div>
+              ) : resolvedProducts.length === 0 ? (
+                <div className="border border-dashed border-gray-200 rounded-xl p-8 text-center bg-gray-50/50">
+                  <Box className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+                  <p className="text-sm text-gray-500">No products are mapped to this creator via any collection.</p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar border border-gray-100 rounded-lg p-2">
+                  {resolvedProducts.map(product => (
+                    <div
+                      key={product.id}
+                      className="flex items-center justify-between p-3 rounded-lg border border-gray-100 bg-white shadow-sm"
                     >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                onClick={() => setShowAddCollectionModal(true)}
-                className="flex items-center gap-2 mt-4 text-sm text-blue-600 hover:text-blue-700"
-              >
-                <Plus className="h-4 w-4" />
-                Add New
-              </button>
-            </div>
-
-            {/* Featured Products */}
-            <div className="bg-white rounded-xl p-6 shadow-sm">
-              <h3 className="text-base font-medium text-gray-900 mb-4">Featured Products</h3>
-
-              <div className="grid grid-cols-3 gap-4">
-                {products.map((product) => (
-                  <div key={product.id} className="group">
-                    <div className="aspect-square bg-gray-100 rounded-xl mb-3 overflow-hidden relative">
-                      <div className="w-full h-full flex items-center justify-center">
-                        <img
-                          src="/api/placeholder/200/200"
-                          alt={product.name}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <div className="w-10 h-10 bg-gray-100 rounded overflow-hidden flex-shrink-0">
+                          {product.images?.[0] ? (
+                            <img src={product.images[0]} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <Box className="w-5 h-5 m-auto text-gray-300 mt-2.5" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate" title={product.title}>{product.title}</p>
+                          <p className="text-xs text-gray-500 truncate" title={product.productType}>{product.productType || 'Product'}</p>
+                        </div>
                       </div>
-                      <button
-                        onClick={() => handleRemoveProduct(product.id)}
-                        className="absolute top-2 right-2 p-1 bg-white rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="h-4 w-4 text-gray-500" />
-                      </button>
                     </div>
-                    <p className="text-sm font-medium text-gray-900">{product.name}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-sm font-medium text-gray-900">₹{product.price}</span>
-                      {product.originalPrice && product.originalPrice !== product.price && (
-                        <span className="text-xs text-gray-500 line-through">₹{product.originalPrice}</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                onClick={() => setShowAddProductModal(true)}
-                className="flex items-center gap-2 mt-4 text-sm text-blue-600 hover:text-blue-700"
-              >
-                <Plus className="h-4 w-4" />
-                Add New
-              </button>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Danger Zone */}
-            <div className="bg-white rounded-xl p-6 shadow-sm">
+            <div className="bg-white rounded-xl p-6 shadow-sm mt-6">
               <div className="flex items-center justify-center gap-4">
                 <span className="text-sm text-gray-500">Danger Zone</span>
                 <button
@@ -751,112 +788,117 @@ export default function AffiliateProfilePage() {
             </button>
           </div>
         </div>
-      )}
+      )
+      }
 
       {/* Add Collection Modal */}
-      {showAddCollectionModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">Add Collection</h2>
+      {
+        showAddCollectionModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">Add Collection</h2>
+                <button
+                  onClick={() => setShowAddCollectionModal(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Collection Name</label>
+                  <input
+                    type="text"
+                    placeholder="Car comfort collections"
+                    className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Collection URL</label>
+                  <input
+                    type="text"
+                    placeholder="https://myfrido.com"
+                    className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  />
+                </div>
+              </div>
+
               <button
-                onClick={() => setShowAddCollectionModal(false)}
-                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+                onClick={() => {
+                  setCollections([...collections, { id: Date.now().toString(), name: 'New Collection', url: 'https://myfrido.com' }]);
+                  setShowAddCollectionModal(false);
+                }}
+                className="w-full mt-6 py-3 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-800"
               >
-                <X className="h-5 w-5" />
+                Add Collection
               </button>
             </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Collection Name</label>
-                <input
-                  type="text"
-                  placeholder="Car comfort collections"
-                  className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Collection URL</label>
-                <input
-                  type="text"
-                  placeholder="https://myfrido.com"
-                  className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                />
-              </div>
-            </div>
-
-            <button
-              onClick={() => {
-                setCollections([...collections, { id: Date.now().toString(), name: 'New Collection', url: 'https://myfrido.com' }]);
-                setShowAddCollectionModal(false);
-              }}
-              className="w-full mt-6 py-3 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-800"
-            >
-              Add Collection
-            </button>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Add Product Modal */}
-      {showAddProductModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">Add Product</h2>
+      {
+        showAddProductModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">Add Product</h2>
+                <button
+                  onClick={() => setShowAddProductModal(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Product Name</label>
+                  <input
+                    type="text"
+                    placeholder="Product Name Goes Here"
+                    className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Price</label>
+                    <input
+                      type="number"
+                      placeholder="2599"
+                      className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Original Price</label>
+                    <input
+                      type="number"
+                      placeholder="2599"
+                      className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <button
-                onClick={() => setShowAddProductModal(false)}
-                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+                onClick={() => {
+                  setProducts([...products, { id: Date.now().toString(), name: 'New Product', price: 2599, originalPrice: 2599, image: '' }]);
+                  setShowAddProductModal(false);
+                }}
+                className="w-full mt-6 py-3 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-800"
               >
-                <X className="h-5 w-5" />
+                Add Product
               </button>
             </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Product Name</label>
-                <input
-                  type="text"
-                  placeholder="Product Name Goes Here"
-                  className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Price</label>
-                  <input
-                    type="number"
-                    placeholder="2599"
-                    className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Original Price</label>
-                  <input
-                    type="number"
-                    placeholder="2599"
-                    className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={() => {
-                setProducts([...products, { id: Date.now().toString(), name: 'New Product', price: 2599, originalPrice: 2599, image: '' }]);
-                setShowAddProductModal(false);
-              }}
-              className="w-full mt-6 py-3 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-800"
-            >
-              Add Product
-            </button>
           </div>
-        </div>
-      )}
-    </DashboardLayout>
+        )
+      }
+    </DashboardLayout >
   );
 }
 
